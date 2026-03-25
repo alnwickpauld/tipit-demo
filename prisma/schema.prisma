@@ -1,0 +1,445 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserRole {
+  TIPIT_ADMIN
+  CUSTOMER_ADMIN
+  CUSTOMER_MANAGER
+  CUSTOMER_VIEWER
+}
+
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum VenueStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum VenueType {
+  HOTEL_BAR
+  RESTAURANT
+  CAFE
+  HOSPITALITY_SUITE
+  EVENT_SPACE
+  OTHER
+}
+
+enum StaffStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PoolStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AllocationRecipientType {
+  STAFF
+  POOL
+}
+
+enum QrDestinationType {
+  EMPLOYEE
+  POOL
+  VENUE
+}
+
+enum PayrollFrequency {
+  WEEKLY
+  FORTNIGHTLY
+  MONTHLY
+}
+
+enum TipTransactionStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+enum SettlementFrequency {
+  WEEKLY
+  FORTNIGHTLY
+  MONTHLY
+}
+
+model Role {
+  id            String         @id @default(cuid())
+  code          UserRole       @unique
+  name          String
+  description   String?
+  users         User[]         @relation("PlatformRole")
+  customerUsers CustomerUser[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model User {
+  id                String         @id @default(cuid())
+  email             String         @unique
+  passwordHash      String
+  firstName         String
+  lastName          String
+  isActive          Boolean        @default(true)
+  lastLoginAt       DateTime?
+  platformRoleId    String?
+  platformRole      Role?          @relation("PlatformRole", fields: [platformRoleId], references: [id], onDelete: SetNull)
+  customerUser      CustomerUser?
+  auditLogs         AuditLog[]     @relation("AuditActor")
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([isActive])
+  @@index([platformRoleId])
+  @@index([lastName, firstName])
+}
+
+model Customer {
+  id             String          @id @default(cuid())
+  name           String
+  slug           String          @unique
+  legalName      String?
+  contactEmail   String
+  contactPhone   String?
+  status         CustomerStatus  @default(ACTIVE)
+  tipitFeeBps    Int             @default(500)
+  currency       String          @default("GBP")
+  timezone       String          @default("Europe/London")
+  venues         Venue[]
+  staffMembers   StaffMember[]
+  pools          Pool[]
+  payrollPeriods PayrollPeriod[]
+  tipTransactions TipTransaction[]
+  allocationResults AllocationResult[]
+  customerUsers  CustomerUser[]
+  payrollConfig  PayrollConfig?
+  auditLogs      AuditLog[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([name, contactEmail])
+  @@index([status])
+  @@index([name])
+}
+
+model CustomerUser {
+  id            String     @id @default(cuid())
+  customerId    String
+  userId        String     @unique
+  roleId        String
+  isActive      Boolean    @default(true)
+  customer      Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role          Role       @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  auditLogs     AuditLog[] @relation("AuditImpersonatedCustomerUser")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  /// Customer-admin users must belong to exactly one customer, enforced by the unique userId.
+  @@unique([customerId, userId])
+  @@index([customerId, roleId])
+  @@index([customerId, isActive])
+}
+
+model Venue {
+  id              String           @id @default(cuid())
+  customerId      String
+  name            String
+  slug            String
+  code            String?
+  type            VenueType?
+  description     String?
+  address         String?
+  timezone        String?
+  status          VenueStatus      @default(ACTIVE)
+  addressLine1    String?
+  addressLine2    String?
+  city            String?
+  postcode        String?
+  country         String?
+  brandBackgroundColor String      @default("#ECECEC")
+  brandTextColor       String      @default("#111111")
+  brandButtonColor     String      @default("#000000")
+  brandButtonTextColor String      @default("#FFFFFF")
+  brandLogoImageUrl    String?
+  customer        Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  staffMembers    StaffMember[]
+  pools           Pool[]
+  allocationRules AllocationRule[]
+  tipTransactions TipTransaction[]  @relation("VenueTipTransactions")
+  destinationTipTransactions TipTransaction[] @relation("TipDestinationVenue")
+  allocationResults AllocationResult[]
+  auditLogs       AuditLog[]        @relation("AuditVenue")
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([customerId, slug])
+  @@unique([customerId, code])
+  @@index([customerId, status])
+  @@index([customerId, name])
+  @@index([customerId, type])
+}
+
+model StaffMember {
+  id                 String               @id @default(cuid())
+  customerId         String
+  venueId            String
+  staffCode          String?
+  externalPayrollRef String?
+  firstName          String
+  lastName           String
+  displayName        String?
+  email              String?
+  payrollReference   String?
+  status             StaffStatus          @default(ACTIVE)
+  employmentStartAt  DateTime?
+  employmentEndAt    DateTime?
+  customer           Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue              Venue                @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  poolMemberships    PoolMember[]
+  allocationLines    AllocationRuleLine[] @relation("AllocationLineStaffRecipient")
+  allocationResults  AllocationResult[]
+  destinationTipTransactions TipTransaction[] @relation("TipDestinationEmployee")
+  auditLogs          AuditLog[]             @relation("AuditStaffMember")
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@index([customerId, status])
+  @@index([venueId, status])
+  @@index([venueId, lastName, firstName])
+  @@unique([customerId, staffCode])
+  @@unique([venueId, email])
+}
+
+model Pool {
+  id                 String               @id @default(cuid())
+  customerId         String
+  venueId            String
+  name               String
+  slug               String
+  description        String?
+  status             PoolStatus           @default(ACTIVE)
+  venue              Venue                @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  customer           Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  members            PoolMember[]
+  allocationLines    AllocationRuleLine[] @relation("AllocationLinePoolRecipient")
+  allocationResults  AllocationResult[]
+  destinationTipTransactions TipTransaction[] @relation("TipDestinationPool")
+  auditLogs          AuditLog[]             @relation("AuditPool")
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+
+  @@unique([venueId, slug])
+  @@index([customerId, status])
+  @@index([venueId, status])
+}
+
+model PoolMember {
+  id             String       @id @default(cuid())
+  poolId         String
+  staffMemberId  String
+  isActive       Boolean      @default(true)
+  joinedAt       DateTime     @default(now())
+  leftAt         DateTime?
+  pool           Pool         @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  staffMember    StaffMember  @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  /// Keep membership history instead of deleting rows so allocations can be reconstructed for a past period.
+  @@unique([poolId, staffMemberId])
+  @@index([poolId, isActive, joinedAt])
+  @@index([staffMemberId, isActive])
+}
+
+model AllocationRule {
+  id              String               @id @default(cuid())
+  venueId         String
+  name            String
+  description     String?
+  priority        Int                  @default(100)
+  isActive        Boolean              @default(true)
+  effectiveFrom   DateTime?
+  effectiveTo     DateTime?
+  venue           Venue                @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  lines           AllocationRuleLine[]
+  auditLogs       AuditLog[]          @relation("AuditAllocationRule")
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  /// The application layer should ensure only one active rule wins for a given destination and date window.
+  @@index([venueId, isActive, priority])
+  @@index([venueId, effectiveFrom, effectiveTo])
+  @@index([name])
+}
+
+model AllocationRuleLine {
+  id                String                   @id @default(cuid())
+  allocationRuleId  String
+  recipientType     AllocationRecipientType
+  staffMemberId     String?
+  poolId            String?
+  percentageBps     Int
+  sortOrder         Int                      @default(0)
+  allocationRule    AllocationRule           @relation(fields: [allocationRuleId], references: [id], onDelete: Cascade)
+  staffMember       StaffMember?             @relation("AllocationLineStaffRecipient", fields: [staffMemberId], references: [id], onDelete: SetNull)
+  pool              Pool?                    @relation("AllocationLinePoolRecipient", fields: [poolId], references: [id], onDelete: SetNull)
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+
+  /// Business rule: line percentages should total 10_000 basis points per allocation rule.
+  @@index([allocationRuleId, sortOrder])
+  @@index([recipientType])
+  @@index([staffMemberId])
+  @@index([poolId])
+}
+
+model PayrollConfig {
+  id                 String            @id @default(cuid())
+  customerId         String            @unique
+  frequency          PayrollFrequency
+  settlementFrequency SettlementFrequency @default(WEEKLY)
+  payPeriodAnchor    DateTime?
+  settlementDay      Int?
+  exportEmail        String?
+  notes              String?
+  customer           Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  /// One payroll configuration per customer keeps reporting and settlement schedules deterministic.
+  @@index([frequency])
+}
+
+model PayrollPeriod {
+  id                String            @id @default(cuid())
+  customerId        String
+  frequency         PayrollFrequency
+  label             String?
+  startsAt          DateTime
+  endsAt            DateTime
+  customer          Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  tipTransactions   TipTransaction[]
+  allocationResults AllocationResult[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@unique([customerId, startsAt, endsAt])
+  @@index([customerId, startsAt])
+  @@index([customerId, endsAt])
+}
+
+model TipTransaction {
+  id                    String               @id @default(cuid())
+  customerId            String
+  venueId               String
+  payrollPeriodId       String?
+  qrCodeSlug            String?
+  destinationType       QrDestinationType
+  destinationEmployeeId String?
+  destinationPoolId     String?
+  destinationVenueId    String?
+  currency              String
+  grossAmount           Decimal              @db.Decimal(10, 2)
+  tipitFeeAmount        Decimal              @db.Decimal(10, 2)
+  netAmount             Decimal              @db.Decimal(10, 2)
+  status                TipTransactionStatus @default(PENDING)
+  rating                Int?
+  ratedAt               DateTime?
+  occurredAt            DateTime
+  stripeCheckoutId      String?
+  customer              Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue                 Venue                @relation("VenueTipTransactions", fields: [venueId], references: [id], onDelete: Cascade)
+  payrollPeriod         PayrollPeriod?       @relation(fields: [payrollPeriodId], references: [id], onDelete: SetNull)
+  destinationEmployee   StaffMember?         @relation("TipDestinationEmployee", fields: [destinationEmployeeId], references: [id], onDelete: SetNull)
+  destinationPool       Pool?                @relation("TipDestinationPool", fields: [destinationPoolId], references: [id], onDelete: SetNull)
+  destinationVenue      Venue?               @relation("TipDestinationVenue", fields: [destinationVenueId], references: [id], onDelete: SetNull)
+  allocationResults     AllocationResult[]
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+
+  @@index([customerId, occurredAt])
+  @@index([venueId, occurredAt])
+  @@index([payrollPeriodId])
+  @@index([status, occurredAt])
+  @@index([destinationEmployeeId])
+  @@index([destinationPoolId])
+}
+
+model AllocationResult {
+  id              String         @id @default(cuid())
+  customerId      String
+  venueId         String
+  payrollPeriodId String?
+  tipTransactionId String
+  employeeId      String
+  poolId          String?
+  grossAmount     Decimal        @db.Decimal(10, 2)
+  netAmount       Decimal        @db.Decimal(10, 2)
+  customer        Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue           Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  payrollPeriod   PayrollPeriod? @relation(fields: [payrollPeriodId], references: [id], onDelete: SetNull)
+  tipTransaction  TipTransaction @relation(fields: [tipTransactionId], references: [id], onDelete: Cascade)
+  employee        StaffMember    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  pool            Pool?          @relation(fields: [poolId], references: [id], onDelete: SetNull)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([customerId, venueId])
+  @@index([payrollPeriodId])
+  @@index([tipTransactionId])
+  @@index([employeeId])
+  @@index([poolId])
+}
+
+model AuditLog {
+  id                  String         @id @default(cuid())
+  userId              String?
+  customerId          String?
+  customerUserId      String?
+  venueId             String?
+  staffMemberId       String?
+  poolId              String?
+  allocationRuleId    String?
+  entityType          String
+  entityId            String
+  action              String
+  summary             String?
+  beforeData          Json?
+  afterData           Json?
+  metadata            Json?
+  ipAddress           String?
+  userAgent           String?
+  user                User?          @relation("AuditActor", fields: [userId], references: [id], onDelete: SetNull)
+  customer            Customer?      @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customerUser        CustomerUser?  @relation("AuditImpersonatedCustomerUser", fields: [customerUserId], references: [id], onDelete: SetNull)
+  venue               Venue?         @relation("AuditVenue", fields: [venueId], references: [id], onDelete: SetNull)
+  staffMember         StaffMember?   @relation("AuditStaffMember", fields: [staffMemberId], references: [id], onDelete: SetNull)
+  pool                Pool?          @relation("AuditPool", fields: [poolId], references: [id], onDelete: SetNull)
+  allocationRule      AllocationRule? @relation("AuditAllocationRule", fields: [allocationRuleId], references: [id], onDelete: SetNull)
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  /// Audit rows are append-only in practice, even though updatedAt exists for consistency across main entities.
+  @@index([userId, createdAt])
+  @@index([customerId, createdAt])
+  @@index([customerUserId, createdAt])
+  @@index([venueId, createdAt])
+  @@index([staffMemberId, createdAt])
+  @@index([poolId, createdAt])
+  @@index([allocationRuleId, createdAt])
+  @@index([entityType, entityId, createdAt])
+  @@index([action, createdAt])
+}
