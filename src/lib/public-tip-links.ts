@@ -1,7 +1,16 @@
 const localAppUrl = "http://127.0.0.1:3000";
 
 export function getPublicAppBaseUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL ?? localAppUrl;
+  const explicitUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.APP_URL;
+  if (explicitUrl) {
+    return explicitUrl;
+  }
+
+  if (process.env.VERCEL_URL) {
+    return `https://${process.env.VERCEL_URL}`;
+  }
+
+  return localAppUrl;
 }
 
 export function getStaffTipSlug(staffMemberId: string) {

@@ -12,6 +12,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  VERCEL_PROJECT_ID: prj_b91uNVBPiUCVv56xEksHCeQynQHD
+
 permissions:
   contents: read
 
@@ -66,12 +69,88 @@ jobs:
           DATABASE_URL: ${{ steps.create_neon_branch.outputs.db_url }}
           DIRECT_URL: ${{ steps.create_neon_branch.outputs.db_url }}
 
+      - name: Sync branch-specific Vercel preview env vars
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          GIT_BRANCH: ${{ needs.setup.outputs.branch }}
+          DATABASE_URL_VALUE: ${{ steps.create_neon_branch.outputs.db_url_with_pooler }}
+          DIRECT_URL_VALUE: ${{ steps.create_neon_branch.outputs.db_url }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${VERCEL_TOKEN:-}" ] || [ -z "${VERCEL_ORG_ID:-}" ]; then
+            echo "Skipping Vercel preview env sync because VERCEL_TOKEN or VERCEL_ORG_ID is not configured."
+            exit 0
+          fi
+
+          ENCODED_BRANCH=$(printf '%s' "$GIT_BRANCH" | jq -sRr @uri)
+
+          sync_env() {
+            local key="$1"
+            local value="$2"
+            local env_list
+            env_list=$(curl -fsS \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/env?target=preview&gitBranch=${ENCODED_BRANCH}&teamId=${VERCEL_ORG_ID}")
+
+            echo "$env_list" | jq -r --arg KEY "$key" '.envs[]? | select(.key == $KEY) | .id' | while read -r env_id; do
+              if [ -n "$env_id" ]; then
+                curl -fsS -X DELETE \
+                  -H "Authorization: Bearer $VERCEL_TOKEN" \
+                  "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/env/${env_id}?teamId=${VERCEL_ORG_ID}" >/dev/null
+              fi
+            done
+
+            local payload
+            payload=$(jq -n \
+              --arg key "$key" \
+              --arg value "$value" \
+              --arg gitBranch "$GIT_BRANCH" \
+              '{ key: $key, value: $value, type: "encrypted", target: ["preview"], gitBranch: $gitBranch }')
+
+            curl -fsS -X POST \
+              -H "Authorization: Bearer $VERCEL_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$payload" \
+              "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/env?teamId=${VERCEL_ORG_ID}" >/dev/null
+          }
+
+          sync_env "DATABASE_URL" "$DATABASE_URL_VALUE"
+          sync_env "DIRECT_URL" "$DIRECT_URL_VALUE"
+
   delete_neon_branch:
     name: Delete Neon Branch
     needs: setup
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     runs-on: ubuntu-latest
     steps:
+      - name: Remove branch-specific Vercel preview env vars
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+          GIT_BRANCH: ${{ needs.setup.outputs.branch }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${VERCEL_TOKEN:-}" ] || [ -z "${VERCEL_ORG_ID:-}" ]; then
+            echo "Skipping Vercel preview env cleanup because VERCEL_TOKEN or VERCEL_ORG_ID is not configured."
+            exit 0
+          fi
+
+          ENCODED_BRANCH=$(printf '%s' "$GIT_BRANCH" | jq -sRr @uri)
+          env_list=$(curl -fsS \
+            -H "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/env?target=preview&gitBranch=${ENCODED_BRANCH}&teamId=${VERCEL_ORG_ID}")
+
+          echo "$env_list" | jq -r '.envs[]? | select(.key == "DATABASE_URL" or .key == "DIRECT_URL") | .id' | while read -r env_id; do
+            if [ -n "$env_id" ]; then
+              curl -fsS -X DELETE \
+                -H "Authorization: Bearer $VERCEL_TOKEN" \
+                "https://api.vercel.com/v9/projects/${VERCEL_PROJECT_ID}/env/${env_id}?teamId=${VERCEL_ORG_ID}" >/dev/null
+            fi
+          done
+
       - name: Delete Neon Branch
         uses: neondatabase/delete-branch-action@v3
         with:

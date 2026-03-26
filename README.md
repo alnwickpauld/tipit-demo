@@ -170,14 +170,26 @@ It will:
 - create a temporary Neon branch when a PR is opened, reopened, or synchronized
 - run `npm ci`
 - run `npm run db:migrate:deploy` against that temporary branch
+- update branch-specific Vercel preview `DATABASE_URL` and `DIRECT_URL` env vars for the PR source branch
 - delete the Neon branch when the PR closes
+- remove those branch-specific Vercel preview env vars when the PR closes
 
 Set these in GitHub before enabling the workflow:
 
 - Repository variable: `NEON_PROJECT_ID`
+- Repository variable: `VERCEL_ORG_ID`
 - Repository secret: `NEON_API_KEY`
+- Repository secret: `VERCEL_TOKEN`
 
-The workflow uses the direct Neon branch URL for Prisma migrations so `prisma migrate deploy` can run reliably.
+The workflow uses:
+
+- the direct Neon branch URL for Prisma migrations so `prisma migrate deploy` can run reliably
+- the pooled Neon branch URL for Vercel preview runtime `DATABASE_URL`
+- the direct Neon branch URL for Vercel preview `DIRECT_URL`
+
+The Vercel project ID for this repo is already embedded in the workflow:
+
+- `prj_b91uNVBPiUCVv56xEksHCeQynQHD`
 
 ## Stripe Webhooks
 
