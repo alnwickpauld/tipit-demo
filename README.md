@@ -161,6 +161,24 @@ If you run migrations as a release step, use:
 npm run db:migrate:deploy
 ```
 
+## GitHub Actions for Neon PR Branches
+
+This repo includes a pull-request workflow at `.github/workflows/neon-pr-branches.yml`.
+
+It will:
+
+- create a temporary Neon branch when a PR is opened, reopened, or synchronized
+- run `npm ci`
+- run `npm run db:migrate:deploy` against that temporary branch
+- delete the Neon branch when the PR closes
+
+Set these in GitHub before enabling the workflow:
+
+- Repository variable: `NEON_PROJECT_ID`
+- Repository secret: `NEON_API_KEY`
+
+The workflow uses the direct Neon branch URL for Prisma migrations so `prisma migrate deploy` can run reliably.
+
 ## Stripe Webhooks
 
 Production-safe webhook handling is available at:
