@@ -1,4 +1,4 @@
-# Tipit
+# Tipit Demo
 
 Tipit is a hospitality tipping platform built with Next.js, TypeScript, Prisma, Neon Postgres, and Stripe. This repo is ready to deploy to Vercel with Prisma migrations managed through `prisma migrate deploy`.
 
