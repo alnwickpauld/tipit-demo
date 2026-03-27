@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node -e \"require('fs').rmSync('.next', { recursive: true, force: true })\"",
     "build": "next build",
     "start": "next start",
     "postinstall": "prisma generate",
