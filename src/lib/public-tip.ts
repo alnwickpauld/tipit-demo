@@ -31,6 +31,147 @@ export type PublicTipDestination = {
   brandLogoImageUrl: string | null;
 };
 
+function buildStaffDestination(
+  staffMember: {
+    id: string;
+    customerId: string;
+    venueId: string;
+    firstName: string;
+    lastName: string;
+    displayName: string | null;
+    customer: { name: string; currency: string };
+    venue: {
+      name: string;
+      slug: string;
+      city: string | null;
+      brandBackgroundColor: string;
+      brandTextColor: string;
+      brandButtonColor: string;
+      brandButtonTextColor: string;
+      brandLogoImageUrl: string | null;
+    };
+  },
+  slug: string,
+): PublicTipDestination {
+  const employeeName = staffMember.displayName ?? `${staffMember.firstName} ${staffMember.lastName}`;
+
+  return {
+    qrCodeId: `staff-${staffMember.id}`,
+    slug,
+    label: `Tip ${employeeName}`,
+    destinationType: "EMPLOYEE",
+    destinationEmployeeId: staffMember.id,
+    destinationPoolId: null,
+    destinationVenueId: staffMember.venueId,
+    customerId: staffMember.customerId,
+    venueId: staffMember.venueId,
+    customerName: staffMember.customer.name,
+    venueName: staffMember.venue.name,
+    venueSlug: staffMember.venue.slug,
+    currency: staffMember.customer.currency,
+    heading: `Tip ${employeeName}`,
+    subheading: `Securely send a thank-you to ${employeeName} at ${staffMember.venue.name}.`,
+    targetName: employeeName,
+    venueBrandName: staffMember.customer.name,
+    venueLocation: staffMember.venue.city ?? staffMember.venue.name,
+    brandBackgroundColor: staffMember.venue.brandBackgroundColor,
+    brandTextColor: staffMember.venue.brandTextColor,
+    brandButtonColor: staffMember.venue.brandButtonColor,
+    brandButtonTextColor: staffMember.venue.brandButtonTextColor,
+    brandLogoImageUrl: staffMember.venue.brandLogoImageUrl,
+  };
+}
+
+function buildPoolDestination(
+  pool: {
+    id: string;
+    name: string;
+    customerId: string;
+    venueId: string;
+    customer: { name: string; currency: string };
+    venue: {
+      name: string;
+      slug: string;
+      city: string | null;
+      brandBackgroundColor: string;
+      brandTextColor: string;
+      brandButtonColor: string;
+      brandButtonTextColor: string;
+      brandLogoImageUrl: string | null;
+    };
+  },
+  slug: string,
+): PublicTipDestination {
+  return {
+    qrCodeId: `pool-${pool.id}`,
+    slug,
+    label: `Tip the ${pool.name}`,
+    destinationType: "POOL",
+    destinationEmployeeId: null,
+    destinationPoolId: pool.id,
+    destinationVenueId: pool.venueId,
+    customerId: pool.customerId,
+    venueId: pool.venueId,
+    customerName: pool.customer.name,
+    venueName: pool.venue.name,
+    venueSlug: pool.venue.slug,
+    currency: pool.customer.currency,
+    heading: `Tip the ${pool.name}`,
+    subheading: `Your tip will be shared across the active ${pool.name.toLowerCase()}.`,
+    targetName: pool.name,
+    venueBrandName: pool.customer.name,
+    venueLocation: pool.venue.city ?? pool.venue.name,
+    brandBackgroundColor: pool.venue.brandBackgroundColor,
+    brandTextColor: pool.venue.brandTextColor,
+    brandButtonColor: pool.venue.brandButtonColor,
+    brandButtonTextColor: pool.venue.brandButtonTextColor,
+    brandLogoImageUrl: pool.venue.brandLogoImageUrl,
+  };
+}
+
+function buildVenueDestination(
+  venue: {
+    id: string;
+    name: string;
+    slug: string;
+    customerId: string;
+    city: string | null;
+    brandBackgroundColor: string;
+    brandTextColor: string;
+    brandButtonColor: string;
+    brandButtonTextColor: string;
+    brandLogoImageUrl: string | null;
+    customer: { name: string; currency: string };
+  },
+  slug: string,
+): PublicTipDestination {
+  return {
+    qrCodeId: `venue-${venue.id}`,
+    slug,
+    label: `Tip the team at ${venue.name}`,
+    destinationType: "VENUE",
+    destinationEmployeeId: null,
+    destinationPoolId: null,
+    destinationVenueId: venue.id,
+    customerId: venue.customerId,
+    venueId: venue.id,
+    customerName: venue.customer.name,
+    venueName: venue.name,
+    venueSlug: venue.slug,
+    currency: venue.customer.currency,
+    heading: `Tip the team at ${venue.name}`,
+    subheading: "Support the service team with a secure digital tip.",
+    targetName: venue.name,
+    venueBrandName: venue.customer.name,
+    venueLocation: venue.city ?? venue.name,
+    brandBackgroundColor: venue.brandBackgroundColor,
+    brandTextColor: venue.brandTextColor,
+    brandButtonColor: venue.brandButtonColor,
+    brandButtonTextColor: venue.brandButtonTextColor,
+    brandLogoImageUrl: venue.brandLogoImageUrl,
+  };
+}
+
 export const getPublicTipDestinationBySlug = cache(
   async (slug: string): Promise<PublicTipDestination | null> => {
     if (slug.startsWith("staff-")) {
@@ -46,34 +187,7 @@ export const getPublicTipDestinationBySlug = cache(
       });
 
       if (staffMember) {
-        const employeeName =
-          staffMember.displayName ?? `${staffMember.firstName} ${staffMember.lastName}`;
-
-        return {
-          qrCodeId: `staff-${staffMember.id}`,
-          slug,
-          label: `Tip ${employeeName}`,
-          destinationType: "EMPLOYEE",
-          destinationEmployeeId: staffMember.id,
-          destinationPoolId: null,
-          destinationVenueId: staffMember.venueId,
-          customerId: staffMember.customerId,
-          venueId: staffMember.venueId,
-          customerName: staffMember.customer.name,
-          venueName: staffMember.venue.name,
-          venueSlug: staffMember.venue.slug,
-          currency: staffMember.customer.currency,
-          heading: `Tip ${employeeName}`,
-          subheading: `Securely send a thank-you to ${employeeName} at ${staffMember.venue.name}.`,
-          targetName: employeeName,
-          venueBrandName: staffMember.customer.name,
-          venueLocation: staffMember.venue.city ?? staffMember.venue.name,
-          brandBackgroundColor: staffMember.venue.brandBackgroundColor,
-          brandTextColor: staffMember.venue.brandTextColor,
-          brandButtonColor: staffMember.venue.brandButtonColor,
-          brandButtonTextColor: staffMember.venue.brandButtonTextColor,
-          brandLogoImageUrl: staffMember.venue.brandLogoImageUrl,
-        };
+        return buildStaffDestination(staffMember, slug);
       }
     }
 
@@ -90,31 +204,7 @@ export const getPublicTipDestinationBySlug = cache(
       });
 
       if (pool) {
-        return {
-          qrCodeId: `pool-${pool.id}`,
-          slug,
-          label: `Tip the ${pool.name}`,
-          destinationType: "POOL",
-          destinationEmployeeId: null,
-          destinationPoolId: pool.id,
-          destinationVenueId: pool.venueId,
-          customerId: pool.customerId,
-          venueId: pool.venueId,
-          customerName: pool.customer.name,
-          venueName: pool.venue.name,
-          venueSlug: pool.venue.slug,
-          currency: pool.customer.currency,
-          heading: `Tip the ${pool.name}`,
-          subheading: `Your tip will be shared across the active ${pool.name.toLowerCase()}.`,
-          targetName: pool.name,
-          venueBrandName: pool.customer.name,
-          venueLocation: pool.venue.city ?? pool.venue.name,
-          brandBackgroundColor: pool.venue.brandBackgroundColor,
-          brandTextColor: pool.venue.brandTextColor,
-          brandButtonColor: pool.venue.brandButtonColor,
-          brandButtonTextColor: pool.venue.brandButtonTextColor,
-          brandLogoImageUrl: pool.venue.brandLogoImageUrl,
-        };
+        return buildPoolDestination(pool, slug);
       }
     }
 
@@ -130,31 +220,7 @@ export const getPublicTipDestinationBySlug = cache(
       });
 
       if (venue) {
-        return {
-          qrCodeId: `venue-${venue.id}`,
-          slug,
-          label: `Tip the team at ${venue.name}`,
-          destinationType: "VENUE",
-          destinationEmployeeId: null,
-          destinationPoolId: null,
-          destinationVenueId: venue.id,
-          customerId: venue.customerId,
-          venueId: venue.id,
-          customerName: venue.customer.name,
-          venueName: venue.name,
-          venueSlug: venue.slug,
-          currency: venue.customer.currency,
-          heading: `Tip the team at ${venue.name}`,
-          subheading: "Support the service team with a secure digital tip.",
-          targetName: venue.name,
-          venueBrandName: venue.customer.name,
-          venueLocation: venue.city ?? venue.name,
-          brandBackgroundColor: venue.brandBackgroundColor,
-          brandTextColor: venue.brandTextColor,
-          brandButtonColor: venue.brandButtonColor,
-          brandButtonTextColor: venue.brandButtonTextColor,
-          brandLogoImageUrl: venue.brandLogoImageUrl,
-        };
+        return buildVenueDestination(venue, slug);
       }
     }
 
@@ -184,15 +250,47 @@ export const getPublicTipDestinationBySlug = cache(
     const floorPool = venue.pools[0];
 
     if (slug === "maya-table-qr" && maya) {
-      return getPublicTipDestinationBySlug(getStaffTipSlug(maya.id));
+      return buildStaffDestination(
+        {
+          ...maya,
+          customer: venue.customer,
+          venue: {
+            name: venue.name,
+            slug: venue.slug,
+            city: venue.city,
+            brandBackgroundColor: venue.brandBackgroundColor,
+            brandTextColor: venue.brandTextColor,
+            brandButtonColor: venue.brandButtonColor,
+            brandButtonTextColor: venue.brandButtonTextColor,
+            brandLogoImageUrl: venue.brandLogoImageUrl,
+          },
+        },
+        slug,
+      );
     }
 
     if (slug === "floor-team-pool" && floorPool) {
-      return getPublicTipDestinationBySlug(getPoolTipSlug(floorPool.id));
+      return buildPoolDestination(
+        {
+          ...floorPool,
+          customer: venue.customer,
+          venue: {
+            name: venue.name,
+            slug: venue.slug,
+            city: venue.city,
+            brandBackgroundColor: venue.brandBackgroundColor,
+            brandTextColor: venue.brandTextColor,
+            brandButtonColor: venue.brandButtonColor,
+            brandButtonTextColor: venue.brandButtonTextColor,
+            brandLogoImageUrl: venue.brandLogoImageUrl,
+          },
+        },
+        slug,
+      );
     }
 
     if (slug === "shark-club-team") {
-      return getPublicTipDestinationBySlug(getVenueTipSlug(venue.id));
+      return buildVenueDestination(venue, slug);
     }
 
     return null;
