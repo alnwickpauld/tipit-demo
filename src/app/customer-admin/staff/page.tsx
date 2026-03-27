@@ -3,6 +3,8 @@ import { requireCustomerUser } from "../../../lib/admin-session";
 import { prisma } from "../../../lib/prisma";
 import { getStaffTipUrl } from "../../../lib/public-tip-links";
 
+export const dynamic = "force-dynamic";
+
 export default async function CustomerStaffPage() {
   const user = await requireCustomerUser();
   const staffMembers = await prisma.staffMember.findMany({

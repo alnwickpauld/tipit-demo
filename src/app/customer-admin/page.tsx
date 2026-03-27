@@ -5,6 +5,8 @@ import { requireCustomerUser } from "../../lib/admin-session";
 import { formatCurrency } from "../../lib/currency";
 import { getDashboardOverview } from "../../lib/dashboard-reporting";
 
+export const dynamic = "force-dynamic";
+
 type CustomerAdminPageProps = {
   searchParams: Promise<{
     venueId?: string;

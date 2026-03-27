@@ -10,6 +10,8 @@ import { requireCustomerUser } from "../../../../lib/admin-session";
 import { formatCurrency } from "../../../../lib/currency";
 import { getPayrollReport } from "../../../../lib/dashboard-reporting";
 
+export const dynamic = "force-dynamic";
+
 type PayrollReportPageProps = {
   searchParams: Promise<{
     venueId?: string;

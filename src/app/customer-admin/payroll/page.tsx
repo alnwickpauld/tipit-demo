@@ -2,6 +2,8 @@ import { CustomerPayrollSettingsManager } from "../../../components/customer-adm
 import { requireCustomerUser } from "../../../lib/admin-session";
 import { prisma } from "../../../lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export default async function CustomerPayrollPage() {
   const user = await requireCustomerUser();
   const customer = await prisma.customer.findUniqueOrThrow({

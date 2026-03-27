@@ -3,6 +3,8 @@ import type { Route } from "next";
 import { AdminShellDesigner } from "../../components/admin/admin-shell-designer";
 import { requireCustomerUser } from "../../lib/admin-session";
 
+export const dynamic = "force-dynamic";
+
 const navItems: Array<{ href: Route; label: string }> = [
   { href: "/customer-admin", label: "Overview" },
   { href: "/customer-admin/venues", label: "Venues" },

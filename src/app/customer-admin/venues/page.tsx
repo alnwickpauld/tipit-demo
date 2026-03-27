@@ -2,6 +2,8 @@ import { CustomerVenuesManager } from "../../../components/customer-admin/custom
 import { requireCustomerUser } from "../../../lib/admin-session";
 import { prisma } from "../../../lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 export default async function CustomerVenuesPage() {
   const user = await requireCustomerUser();
   const venues = await prisma.venue.findMany({

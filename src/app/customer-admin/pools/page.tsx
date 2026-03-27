@@ -3,6 +3,8 @@ import { requireCustomerUser } from "../../../lib/admin-session";
 import { prisma } from "../../../lib/prisma";
 import { getPoolTipUrl } from "../../../lib/public-tip-links";
 
+export const dynamic = "force-dynamic";
+
 export default async function CustomerPoolsPage() {
   const user = await requireCustomerUser();
   const [pools, venues, staffMembers] = await Promise.all([

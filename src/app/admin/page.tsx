@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import { prisma } from "../../lib/prisma";
 
+export const dynamic = "force-dynamic";
+
 function formatPercent(value: number) {
   return `${value.toFixed(2).replace(/\.00$/, "")}%`;
 }

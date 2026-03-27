@@ -6,6 +6,8 @@ import {
   type RankingGranularity,
 } from "../../../../lib/dashboard-reporting";
 
+export const dynamic = "force-dynamic";
+
 type LeaderboardPageProps = {
   searchParams: Promise<{
     venueId?: string;
