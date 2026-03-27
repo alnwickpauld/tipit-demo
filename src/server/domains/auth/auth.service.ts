@@ -1,4 +1,4 @@
-import type { PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 
 import { prisma } from "../../../lib/prisma";
 import { AuthenticationError } from "../../shared/errors/app-error";
@@ -8,6 +8,17 @@ import type { AuthenticatedUser } from "../../shared/auth/types";
 import type { LoginInput } from "./auth.schemas";
 
 type AuthPrisma = Pick<PrismaClient, "user">;
+type AuthenticatedUserRecord = Prisma.UserGetPayload<{
+  include: {
+    platformRole: true;
+    customerUser: {
+      include: {
+        role: true;
+        customer: true;
+      };
+    };
+  };
+}>;
 
 export class AuthService {
   constructor(private readonly db: AuthPrisma = prisma) {}
@@ -70,7 +81,7 @@ export class AuthService {
     return this.toAuthenticatedUser(user);
   }
 
-  private toAuthenticatedUser(user: Awaited<ReturnType<AuthPrisma["user"]["findUnique"]>>) {
+  private toAuthenticatedUser(user: AuthenticatedUserRecord | null) {
     if (!user) {
       throw new AuthenticationError("Authentication required");
     }

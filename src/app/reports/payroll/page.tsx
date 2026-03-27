@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 
 type PayrollReportPageProps = {
@@ -21,5 +22,6 @@ export default async function PayrollReportPage({
     params.set("payrollPeriodId", payrollPeriodId);
   }
 
-  redirect(`/customer-admin/reports/payroll${params.toString() ? `?${params.toString()}` : ""}`);
+  const target = `/customer-admin/reports/payroll${params.toString() ? `?${params.toString()}` : ""}`;
+  redirect(target as Route);
 }

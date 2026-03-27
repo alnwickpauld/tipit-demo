@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 
 type DashboardRedirectPageProps = {
@@ -16,5 +17,6 @@ export default async function DashboardRedirectPage({
     params.set("venueId", venueId);
   }
 
-  redirect(`/customer-admin${params.toString() ? `?${params.toString()}` : ""}`);
+  const target = `/customer-admin${params.toString() ? `?${params.toString()}` : ""}`;
+  redirect(target as Route);
 }

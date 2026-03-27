@@ -1,3 +1,4 @@
+import type { Route } from "next";
 import { redirect } from "next/navigation";
 import type { RankingGranularity } from "../../../lib/dashboard-reporting";
 
@@ -22,7 +23,6 @@ export default async function LeaderboardPage({
     params.set("granularity", granularity);
   }
 
-  redirect(
-    `/customer-admin/reports/leaderboard${params.toString() ? `?${params.toString()}` : ""}`,
-  );
+  const target = `/customer-admin/reports/leaderboard${params.toString() ? `?${params.toString()}` : ""}`;
+  redirect(target as Route);
 }

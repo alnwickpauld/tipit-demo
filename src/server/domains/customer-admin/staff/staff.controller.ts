@@ -13,6 +13,17 @@ import { StaffService } from "./staff.service";
 
 const service = new StaffService();
 
+function requireCustomerIdForWrite(
+  user: NonNullable<Parameters<ApiHandler>[0]["user"]>,
+  requestedCustomerId?: string,
+) {
+  const customerId = resolveCustomerContext(user, requestedCustomerId, {
+    requireForTipitAdmin: true,
+  });
+
+  return customerId!;
+}
+
 export const listStaffController: ApiHandler = async (context) => {
   if (!context.user) {
     throw new AuthorizationError();
@@ -52,9 +63,7 @@ export const createStaffController: ApiHandler = async (context) => {
 
   return ok(
     await service.create(
-      resolveCustomerContext(context.user, payload.customerId, {
-        requireForTipitAdmin: true,
-      })!,
+      requireCustomerIdForWrite(context.user, payload.customerId),
       payload,
     ),
     201,
@@ -69,7 +78,7 @@ export const updateStaffController: ApiHandler = async (context) => {
   const payload = await parseJsonBody(context, updateStaffSchema);
   return ok(
     await service.update(
-      resolveCustomerContext(context.user, payload.customerId),
+      requireCustomerIdForWrite(context.user, payload.customerId),
       context.params.staffMemberId,
       payload,
     ),

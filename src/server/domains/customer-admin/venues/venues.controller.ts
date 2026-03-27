@@ -27,6 +27,19 @@ function resolveVenueCustomerId(
   return user.customerId;
 }
 
+function requireVenueCustomerId(
+  user: NonNullable<Parameters<ApiHandler>[0]["user"]>,
+  requestedCustomerId?: string,
+) {
+  const customerId = resolveVenueCustomerId(user, requestedCustomerId);
+
+  if (!customerId) {
+    throw new AuthorizationError("customerId is required for this action");
+  }
+
+  return customerId;
+}
+
 export const listVenuesController: ApiHandler = async (context) => {
   if (!context.user) {
     throw new AuthorizationError();
@@ -66,7 +79,7 @@ export const createVenueController: ApiHandler = async (context) => {
 
   return ok(
     await service.create(
-      resolveVenueCustomerId(context.user, payload.customerId),
+      requireVenueCustomerId(context.user, payload.customerId),
       payload,
     ),
     201,
@@ -81,7 +94,7 @@ export const updateVenueController: ApiHandler = async (context) => {
   const payload = await parseJsonBody(context, updateVenueSchema);
   return ok(
     await service.update(
-      resolveVenueCustomerId(context.user, payload.customerId),
+      requireVenueCustomerId(context.user, payload.customerId),
       context.params.venueId,
       payload,
     ),
