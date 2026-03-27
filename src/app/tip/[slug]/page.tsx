@@ -1,26 +1,7 @@
-import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 
+import { TipFormClient } from "../../../components/tip-form-client";
 import { getPublicTipDestinationBySlug } from "../../../lib/public-tip";
-
-const TipForm = dynamic(
-  () => import("../../../components/tip-form").then((module) => module.TipForm),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="mt-10 space-y-4 text-center">
-        <div className="mx-auto h-10 w-40 animate-pulse rounded-2xl bg-[#d9d9d9]" />
-        <div className="mx-auto h-5 w-64 animate-pulse rounded-full bg-[#dfdfdf]" />
-        <div className="space-y-3">
-          <div className="h-16 animate-pulse rounded-xl bg-[#f2f2f2]" />
-          <div className="h-16 animate-pulse rounded-xl bg-[#f2f2f2]" />
-          <div className="h-16 animate-pulse rounded-xl bg-[#f2f2f2]" />
-          <div className="h-16 animate-pulse rounded-xl bg-[#f2f2f2]" />
-        </div>
-      </div>
-    ),
-  },
-);
 
 type TipPageProps = {
   params: Promise<{
@@ -56,7 +37,7 @@ export default async function TipPage({ params }: TipPageProps) {
           />
         </div>
 
-        <TipForm
+        <TipFormClient
           slug={destination.slug}
           currency={destination.currency}
           targetName={destination.targetName}
