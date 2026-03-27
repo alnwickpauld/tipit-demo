@@ -18,8 +18,17 @@ export default async function TipPage({ params }: TipPageProps) {
   }
 
   return (
-    <main className="min-h-screen px-4 py-8 sm:px-6">
-      <div className="mx-auto w-full max-w-sm rounded-[2rem] px-5 py-10">
+    <main
+      className="min-h-screen px-4 py-8 sm:px-6"
+      style={{ backgroundColor: destination.brandBackgroundColor }}
+    >
+      <div
+        className="mx-auto w-full max-w-sm rounded-[2rem] px-5 py-10"
+        style={{
+          backgroundColor: destination.brandBackgroundColor,
+          color: destination.brandTextColor,
+        }}
+      >
         <div className="mb-8 text-center">
           <img
             src={destination.brandLogoImageUrl || "/logo-black.png"}
