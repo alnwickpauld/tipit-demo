@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { SandmanWordmark } from "../../../../components/brand/sandman-wordmark";
 import { TipFeedbackCardLarge } from "../../../../components/tip-feedback-card-large";
 import { formatCurrency } from "../../../../lib/currency";
 import { getPublicTipDestinationBySlug } from "../../../../lib/public-tip";
@@ -96,11 +97,15 @@ export default async function TipSuccessPage({
           color: destination.brandTextColor,
         }}
       >
-        <img
-          src={destination.brandLogoImageUrl || "/logo-black.png"}
-          alt={destination.venueBrandName}
-          className="mx-auto h-auto w-[220px] max-w-full object-contain"
-        />
+        {destination.brandLogoImageUrl ? (
+          <img
+            src={destination.brandLogoImageUrl}
+            alt={destination.venueBrandName}
+            className="mx-auto h-auto w-[220px] max-w-full object-contain"
+          />
+        ) : (
+          <SandmanWordmark tone="dark" subtitle={destination.venueName} />
+        )}
         <div className="mx-auto mt-8 flex h-24 w-24 items-center justify-center rounded-full bg-[#2ed15b] text-[3rem] font-bold text-[#111111]">
           ✓
         </div>

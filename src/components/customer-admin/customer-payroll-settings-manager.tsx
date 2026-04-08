@@ -121,7 +121,7 @@ export function CustomerPayrollSettingsManager({
 
   return (
     <section className="customer-admin-manager grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
-      <article className="rounded-[1.8rem] border border-[#151515] bg-[#090909] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.25)]">
+      <article className="rounded-[1.8rem] border border-[#d9c8b8] bg-[rgba(255,251,246,0.84)] p-6 shadow-[0_24px_60px_rgba(96,71,49,0.10)]">
         <p className="text-xs uppercase tracking-[0.26em] text-[#8d8d8d]">Settings</p>
         <h2 className="mt-2 text-2xl text-white">Payroll configuration</h2>
         <p className="mt-2 text-sm text-[#9b9b9b]">
@@ -242,7 +242,7 @@ export function CustomerPayrollSettingsManager({
               type="button"
               onClick={handleSave}
               disabled={isPending}
-              className="rounded-full border border-[#f5d31d] bg-[#f5d31d] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-full border border-[#b49e89] bg-[#b49e89] px-5 py-3 text-sm font-semibold text-[#fffaf4] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isPending ? "Saving..." : "Save settings"}
             </button>
@@ -250,7 +250,7 @@ export function CustomerPayrollSettingsManager({
         ) : null}
       </article>
 
-      <article className="rounded-[1.8rem] border border-[#151515] bg-[#090909] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.25)]">
+      <article className="rounded-[1.8rem] border border-[#d9c8b8] bg-[rgba(255,251,246,0.84)] p-6 shadow-[0_24px_60px_rgba(96,71,49,0.10)]">
         <p className="text-xs uppercase tracking-[0.26em] text-[#8d8d8d]">Permissions</p>
         <h2 className="mt-2 text-2xl text-white">What your role can do</h2>
         <div className="mt-6 grid gap-3">
@@ -261,7 +261,7 @@ export function CustomerPayrollSettingsManager({
           ].map((item) => (
             <div
               key={item}
-              className="rounded-[1.4rem] border border-[#171717] bg-[#0b0b0b] px-4 py-4 text-sm leading-6 text-[#d0d0d0]"
+            className="rounded-[1.4rem] border border-[#dcc8b2] bg-[rgba(255,251,246,0.92)] px-4 py-4 text-sm leading-6 text-[#5f5045]"
             >
               {item}
             </div>

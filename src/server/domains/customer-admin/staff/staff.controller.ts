@@ -35,6 +35,7 @@ export const listStaffController: ApiHandler = async (context) => {
     await service.list({
       customerId: resolveCustomerContext(context.user, query.customerId),
       venueId: query.venueId,
+      departmentId: query.departmentId,
     }),
   );
 };

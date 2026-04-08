@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const allocationRuleLineSchema = z.object({
-  recipientType: z.enum(["STAFF", "POOL"]),
+  recipientType: z.enum(["STAFF", "POOL", "SELECTED_STAFF"]),
   staffMemberId: z.string().optional(),
   poolId: z.string().optional(),
   percentageBps: z.number().int().min(1).max(10_000),
@@ -10,6 +10,10 @@ export const allocationRuleLineSchema = z.object({
 
 export const createAllocationRuleSchema = z.object({
   venueId: z.string().min(1),
+  departmentId: z.string().min(1).optional(),
+  serviceAreaId: z.string().min(1).optional(),
+  scope: z.enum(["VENUE_DEFAULT", "DEPARTMENT", "SERVICE_AREA"]).default("VENUE_DEFAULT"),
+  selectionType: z.enum(["TEAM", "INDIVIDUAL"]).optional(),
   name: z.string().min(2),
   description: z.string().optional(),
   priority: z.number().int().default(100),

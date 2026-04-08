@@ -35,6 +35,36 @@ enum VenueType {
   OTHER
 }
 
+enum DepartmentType {
+  MEETING_EVENTS
+  BREAKFAST
+  ROOM_SERVICE
+  BAR
+  RESTAURANT
+  OTHER
+}
+
+enum TippingMode {
+  TEAM_ONLY
+  INDIVIDUAL_ONLY
+  TEAM_OR_INDIVIDUAL
+  SHIFT_SELECTOR
+}
+
+enum DisplayMode {
+  FIXED_SIGN
+  TABLE_CARD
+  BILL_FOLDER
+  COUNTER_SIGN
+  EVENT_SIGN
+  OTHER
+}
+
+enum NoActiveShiftBehavior {
+  DISABLE_INDIVIDUAL
+  FALLBACK_TO_TEAM
+}
+
 enum StaffStatus {
   ACTIVE
   INACTIVE
@@ -48,12 +78,31 @@ enum PoolStatus {
 enum AllocationRecipientType {
   STAFF
   POOL
+  SELECTED_STAFF
+}
+
+enum TipSelectionType {
+  TEAM
+  INDIVIDUAL
+}
+
+enum AllocationRuleScope {
+  VENUE_DEFAULT
+  DEPARTMENT
+  SERVICE_AREA
 }
 
 enum QrDestinationType {
   EMPLOYEE
   POOL
   VENUE
+  SERVICE_AREA
+}
+
+enum QrAssetDestinationType {
+  SERVICE_AREA
+  TEAM
+  STAFF_MEMBER
 }
 
 enum PayrollFrequency {
@@ -73,6 +122,36 @@ enum SettlementFrequency {
   WEEKLY
   FORTNIGHTLY
   MONTHLY
+}
+
+enum ShiftStatus {
+  SCHEDULED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum IntegrationProvider {
+  ORACLE_SIMPHONY
+  AMEEGO
+  PLANET
+  SAGE
+  OTHER
+}
+
+enum IntegrationSyncStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  PARTIAL
+}
+
+enum PayrollExportBatchStatus {
+  DRAFT
+  READY
+  EXPORTED
+  FAILED
+  CANCELLED
 }
 
 model Role {
@@ -118,8 +197,17 @@ model Customer {
   currency       String          @default("GBP")
   timezone       String          @default("Europe/London")
   venues         Venue[]
+  departments    Department[]
+  departmentTippingSettings CustomerDepartmentTippingSetting[]
+  departmentStaffAssignments DepartmentStaffAssignment[]
+  shifts         Shift[]
+  serviceAreas   ServiceArea[]
+  qrAssets       QrAsset[]
   staffMembers   StaffMember[]
   pools          Pool[]
+  importedHoursWorked ImportedHoursWorked[]
+  importedServiceCharges ImportedServiceCharge[]
+  payrollExportBatches PayrollExportBatch[]
   payrollPeriods PayrollPeriod[]
   tipTransactions TipTransaction[]
   allocationResults AllocationResult[]
@@ -159,6 +247,8 @@ model Venue {
   name            String
   slug            String
   code            String?
+  externalSystemRef String?
+  externalSystemProvider IntegrationProvider?
   type            VenueType?
   description     String?
   address         String?
@@ -175,6 +265,14 @@ model Venue {
   brandButtonTextColor String      @default("#FFFFFF")
   brandLogoImageUrl    String?
   customer        Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  departments     Department[]
+  departmentStaffAssignments DepartmentStaffAssignment[]
+  shifts          Shift[]
+  serviceAreas    ServiceArea[]
+  qrAssets        QrAsset[]
+  importedHoursWorked ImportedHoursWorked[]
+  importedServiceCharges ImportedServiceCharge[]
+  payrollExportBatches PayrollExportBatch[]
   staffMembers    StaffMember[]
   pools           Pool[]
   allocationRules AllocationRule[]
@@ -190,6 +288,84 @@ model Venue {
   @@index([customerId, status])
   @@index([customerId, name])
   @@index([customerId, type])
+  @@index([externalSystemProvider, externalSystemRef])
+}
+
+model Department {
+  id            String         @id @default(cuid())
+  customerId    String
+  venueId       String
+  name          String
+  slug          String
+  type          DepartmentType @default(OTHER)
+  description   String?
+  externalSystemRef String?
+  externalSystemProvider IntegrationProvider?
+  isActive      Boolean        @default(true)
+  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue         Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  staffAssignments DepartmentStaffAssignment[]
+  shifts        Shift[]
+  serviceAreas  ServiceArea[]
+  qrAssets      QrAsset[]
+  importedHoursWorked ImportedHoursWorked[]
+  importedServiceCharges ImportedServiceCharge[]
+  allocationRules AllocationRule[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@unique([venueId, slug])
+  @@index([customerId, venueId])
+  @@index([venueId, type, isActive])
+  @@index([venueId, name])
+  @@index([externalSystemProvider, externalSystemRef])
+}
+
+model ServiceArea {
+  id                      String         @id @default(cuid())
+  customerId              String
+  venueId                 String
+  departmentId            String
+  name                    String
+  slug                    String
+  description             String?
+  tippingMode             TippingMode
+  displayMode             DisplayMode
+  noActiveShiftBehavior   NoActiveShiftBehavior @default(FALLBACK_TO_TEAM)
+  teamTippingEnabled      Boolean        @default(true)
+  individualTippingEnabled Boolean       @default(false)
+  isActive                Boolean        @default(true)
+  customer                Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue                   Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  department              Department     @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  qrAssets                QrAsset[]
+  importedServiceCharges  ImportedServiceCharge[]
+  allocationRules         AllocationRule[]
+  destinationTipTransactions TipTransaction[] @relation("TipDestinationServiceArea")
+  createdAt               DateTime       @default(now())
+  updatedAt               DateTime       @updatedAt
+
+  @@unique([venueId, slug])
+  @@index([customerId, venueId])
+  @@index([departmentId, isActive])
+  @@index([venueId, departmentId, isActive])
+  @@index([venueId, name])
+}
+
+model CustomerDepartmentTippingSetting {
+  id                     String         @id @default(cuid())
+  customerId             String
+  departmentType         DepartmentType
+  qrTippingEnabled       Boolean        @default(false)
+  teamTippingEnabled     Boolean        @default(true)
+  individualTippingEnabled Boolean      @default(false)
+  shiftSelectorEnabled   Boolean        @default(false)
+  customer               Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+
+  @@unique([customerId, departmentType])
+  @@index([customerId, qrTippingEnabled])
 }
 
 model StaffMember {
@@ -198,6 +374,8 @@ model StaffMember {
   venueId            String
   staffCode          String?
   externalPayrollRef String?
+  externalSystemRef  String?
+  externalSystemProvider IntegrationProvider?
   firstName          String
   lastName           String
   displayName        String?
@@ -208,7 +386,12 @@ model StaffMember {
   employmentEndAt    DateTime?
   customer           Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
   venue              Venue                @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  departmentAssignments DepartmentStaffAssignment[]
+  shiftAssignments      ShiftStaffAssignment[]
+  qrAssets              QrAsset[]
   poolMemberships    PoolMember[]
+  importedHoursWorked ImportedHoursWorked[]
+  payrollExportLines PayrollExportLine[]
   allocationLines    AllocationRuleLine[] @relation("AllocationLineStaffRecipient")
   allocationResults  AllocationResult[]
   destinationTipTransactions TipTransaction[] @relation("TipDestinationEmployee")
@@ -221,6 +404,98 @@ model StaffMember {
   @@index([venueId, lastName, firstName])
   @@unique([customerId, staffCode])
   @@unique([venueId, email])
+  @@index([externalSystemProvider, externalSystemRef])
+}
+
+model DepartmentStaffAssignment {
+  id            String      @id @default(cuid())
+  customerId    String
+  venueId       String
+  departmentId  String
+  staffMemberId String
+  isPrimary     Boolean     @default(false)
+  isActive      Boolean     @default(true)
+  activeFrom    DateTime    @default(now())
+  activeTo      DateTime?
+  customer      Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue         Venue       @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  department    Department  @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  staffMember   StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([departmentId, staffMemberId])
+  @@index([customerId, venueId])
+  @@index([departmentId, isActive])
+  @@index([staffMemberId, isActive])
+}
+
+model QrAsset {
+  id                String                 @id @default(cuid())
+  customerId        String
+  venueId           String
+  departmentId      String?
+  serviceAreaId     String?
+  staffMemberId     String?
+  slug              String                 @unique
+  destinationType   QrAssetDestinationType
+  label             String
+  printName         String
+  displayMode       DisplayMode
+  isActive          Boolean                @default(true)
+  previewConfig     Json?
+  customer          Customer               @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue             Venue                  @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  department        Department?            @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  serviceArea       ServiceArea?           @relation(fields: [serviceAreaId], references: [id], onDelete: SetNull)
+  staffMember       StaffMember?           @relation(fields: [staffMemberId], references: [id], onDelete: SetNull)
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@index([customerId, venueId, departmentId])
+  @@index([venueId, displayMode, isActive])
+  @@index([departmentId, isActive])
+  @@index([serviceAreaId])
+  @@index([staffMemberId])
+  @@index([destinationType, isActive])
+}
+
+model Shift {
+  id            String       @id @default(cuid())
+  customerId    String
+  venueId       String
+  departmentId  String
+  name          String
+  timezone      String
+  startsAt      DateTime
+  endsAt        DateTime
+  status        ShiftStatus  @default(SCHEDULED)
+  customer      Customer     @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue         Venue        @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  department    Department   @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  staffAssignments ShiftStaffAssignment[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([customerId, venueId])
+  @@index([departmentId, status, startsAt, endsAt])
+  @@index([venueId, status, startsAt, endsAt])
+}
+
+model ShiftStaffAssignment {
+  id               String      @id @default(cuid())
+  shiftId          String
+  staffMemberId    String
+  role             String
+  eligibleForTips  Boolean     @default(true)
+  shift            Shift       @relation(fields: [shiftId], references: [id], onDelete: Cascade)
+  staffMember      StaffMember @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@unique([shiftId, staffMemberId])
+  @@index([shiftId, eligibleForTips])
+  @@index([staffMemberId, eligibleForTips])
 }
 
 model Pool {
@@ -267,6 +542,10 @@ model PoolMember {
 model AllocationRule {
   id              String               @id @default(cuid())
   venueId         String
+  departmentId    String?
+  serviceAreaId   String?
+  scope           AllocationRuleScope  @default(VENUE_DEFAULT)
+  selectionType   TipSelectionType?
   name            String
   description     String?
   priority        Int                  @default(100)
@@ -274,6 +553,8 @@ model AllocationRule {
   effectiveFrom   DateTime?
   effectiveTo     DateTime?
   venue           Venue                @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  department      Department?          @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  serviceArea     ServiceArea?         @relation(fields: [serviceAreaId], references: [id], onDelete: SetNull)
   lines           AllocationRuleLine[]
   auditLogs       AuditLog[]          @relation("AuditAllocationRule")
   createdAt       DateTime             @default(now())
@@ -281,6 +562,8 @@ model AllocationRule {
 
   /// The application layer should ensure only one active rule wins for a given destination and date window.
   @@index([venueId, isActive, priority])
+  @@index([serviceAreaId, selectionType, isActive, priority])
+  @@index([departmentId, selectionType, isActive, priority])
   @@index([venueId, effectiveFrom, effectiveTo])
   @@index([name])
 }
@@ -326,11 +609,14 @@ model PayrollConfig {
 model PayrollPeriod {
   id                String            @id @default(cuid())
   customerId        String
+  externalSystemRef String?
+  externalSystemProvider IntegrationProvider?
   frequency         PayrollFrequency
   label             String?
   startsAt          DateTime
   endsAt            DateTime
   customer          Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  payrollExportBatches PayrollExportBatch[]
   tipTransactions   TipTransaction[]
   allocationResults AllocationResult[]
   createdAt         DateTime          @default(now())
@@ -339,6 +625,119 @@ model PayrollPeriod {
   @@unique([customerId, startsAt, endsAt])
   @@index([customerId, startsAt])
   @@index([customerId, endsAt])
+  @@index([externalSystemProvider, externalSystemRef])
+}
+
+model ImportedHoursWorked {
+  id                String                @id @default(cuid())
+  customerId        String
+  venueId           String
+  departmentId      String?
+  staffMemberId     String?
+  integrationProvider IntegrationProvider
+  externalRecordRef String
+  sourceSystemName  String?
+  status            IntegrationSyncStatus @default(PENDING)
+  workDate          DateTime
+  shiftStartsAt     DateTime?
+  shiftEndsAt       DateTime?
+  hoursWorked       Decimal               @db.Decimal(8, 2)
+  rawPayload        Json?
+  importedAt        DateTime              @default(now())
+  customer          Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue             Venue                 @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  department        Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  staffMember       StaffMember?          @relation(fields: [staffMemberId], references: [id], onDelete: SetNull)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  @@unique([integrationProvider, externalRecordRef])
+  @@index([customerId, workDate])
+  @@index([venueId, workDate])
+  @@index([departmentId, workDate])
+  @@index([staffMemberId, workDate])
+  @@index([status, importedAt])
+}
+
+model ImportedServiceCharge {
+  id                  String                @id @default(cuid())
+  customerId          String
+  venueId             String
+  departmentId        String?
+  serviceAreaId       String?
+  integrationProvider IntegrationProvider
+  externalRecordRef   String
+  sourceSystemName    String?
+  status              IntegrationSyncStatus @default(PENDING)
+  businessDate        DateTime
+  serviceChargeAmount Decimal               @db.Decimal(10, 2)
+  cardTipAmount       Decimal?              @db.Decimal(10, 2)
+  grossSalesAmount    Decimal?              @db.Decimal(10, 2)
+  currency            String                @default("GBP")
+  rawPayload          Json?
+  importedAt          DateTime              @default(now())
+  customer            Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue               Venue                 @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  department          Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  serviceArea         ServiceArea?          @relation(fields: [serviceAreaId], references: [id], onDelete: SetNull)
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  @@unique([integrationProvider, externalRecordRef])
+  @@index([customerId, businessDate])
+  @@index([venueId, businessDate])
+  @@index([departmentId, businessDate])
+  @@index([serviceAreaId, businessDate])
+  @@index([status, importedAt])
+}
+
+model PayrollExportBatch {
+  id                  String                   @id @default(cuid())
+  customerId          String
+  venueId             String?
+  payrollPeriodId     String?
+  integrationProvider IntegrationProvider
+  externalBatchRef    String?
+  sourceSystemName    String?
+  status              PayrollExportBatchStatus @default(DRAFT)
+  currency            String                   @default("GBP")
+  exportedAt          DateTime?
+  failedAt            DateTime?
+  fileName            String?
+  notes               String?
+  rawPayload          Json?
+  customer            Customer                 @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue               Venue?                   @relation(fields: [venueId], references: [id], onDelete: SetNull)
+  payrollPeriod       PayrollPeriod?           @relation(fields: [payrollPeriodId], references: [id], onDelete: SetNull)
+  lines               PayrollExportLine[]
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  @@index([customerId, status, createdAt])
+  @@index([venueId, createdAt])
+  @@index([payrollPeriodId, createdAt])
+  @@index([integrationProvider, externalBatchRef])
+}
+
+model PayrollExportLine {
+  id                   String             @id @default(cuid())
+  payrollExportBatchId String
+  staffMemberId        String
+  externalEmployeeRef  String?
+  grossTipsAmount      Decimal            @db.Decimal(10, 2)
+  hoursWorked          Decimal?           @db.Decimal(8, 2)
+  serviceChargeAmount  Decimal?           @db.Decimal(10, 2)
+  netPayableAmount     Decimal?           @db.Decimal(10, 2)
+  currency             String             @default("GBP")
+  linePayload          Json?
+  payrollExportBatch   PayrollExportBatch @relation(fields: [payrollExportBatchId], references: [id], onDelete: Cascade)
+  staffMember          StaffMember        @relation(fields: [staffMemberId], references: [id], onDelete: Cascade)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  @@unique([payrollExportBatchId, staffMemberId])
+  @@index([staffMemberId, createdAt])
+  @@index([externalEmployeeRef])
 }
 
 model TipTransaction {
@@ -351,6 +750,8 @@ model TipTransaction {
   destinationEmployeeId String?
   destinationPoolId     String?
   destinationVenueId    String?
+  destinationServiceAreaId String?
+  guestSelectionType    TipSelectionType?
   currency              String
   grossAmount           Decimal              @db.Decimal(10, 2)
   tipitFeeAmount        Decimal              @db.Decimal(10, 2)
@@ -366,6 +767,7 @@ model TipTransaction {
   destinationEmployee   StaffMember?         @relation("TipDestinationEmployee", fields: [destinationEmployeeId], references: [id], onDelete: SetNull)
   destinationPool       Pool?                @relation("TipDestinationPool", fields: [destinationPoolId], references: [id], onDelete: SetNull)
   destinationVenue      Venue?               @relation("TipDestinationVenue", fields: [destinationVenueId], references: [id], onDelete: SetNull)
+  destinationServiceArea ServiceArea?        @relation("TipDestinationServiceArea", fields: [destinationServiceAreaId], references: [id], onDelete: SetNull)
   allocationResults     AllocationResult[]
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
@@ -376,6 +778,8 @@ model TipTransaction {
   @@index([status, occurredAt])
   @@index([destinationEmployeeId])
   @@index([destinationPoolId])
+  @@index([destinationServiceAreaId])
+  @@index([guestSelectionType, occurredAt])
 }
 
 model AllocationResult {

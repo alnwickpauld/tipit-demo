@@ -17,6 +17,22 @@ type TipFormProps = {
   slug: string;
   currency: string;
   targetName: string;
+  destinationType: "EMPLOYEE" | "POOL" | "VENUE" | "SERVICE_AREA";
+  serviceAreaJourney: {
+    departmentName: string;
+    tippingMode: "TEAM_ONLY" | "INDIVIDUAL_ONLY" | "TEAM_OR_INDIVIDUAL" | "SHIFT_SELECTOR";
+    displayMode: "FIXED_SIGN" | "TABLE_CARD" | "BILL_FOLDER" | "COUNTER_SIGN" | "EVENT_SIGN" | "OTHER";
+    showTeamOption: boolean;
+    selectionUi: "LIST" | "DROPDOWN";
+    individualTippingUnavailable: boolean;
+    individualTippingMessage: string | null;
+    activeShiftStaff: Array<{
+      id: string;
+      displayName: string;
+      roleLabel?: string;
+      sortOrder: number;
+    }>;
+  } | null;
   textColor: string;
   buttonColor: string;
   buttonTextColor: string;
@@ -27,13 +43,39 @@ export function TipForm({
   slug,
   currency,
   targetName,
+  destinationType,
+  serviceAreaJourney,
   textColor,
   buttonColor,
   buttonTextColor,
+  backgroundColor,
 }: TipFormProps) {
   const [selectedAmount, setSelectedAmount] = useState<number>(5);
   const [customAmount, setCustomAmount] = useState("");
-  const [step, setStep] = useState<"amount" | "payment">("amount");
+  const tippingMode = serviceAreaJourney?.tippingMode ?? null;
+  const departmentName = serviceAreaJourney?.departmentName ?? null;
+  const displayMode = serviceAreaJourney?.displayMode ?? null;
+  const individualTippingUnavailable = serviceAreaJourney?.individualTippingUnavailable ?? false;
+  const individualTippingMessage = serviceAreaJourney?.individualTippingMessage ?? null;
+  const serviceAreaStaffOptions = serviceAreaJourney?.activeShiftStaff ?? [];
+  const showTeamOption = serviceAreaJourney?.showTeamOption ?? false;
+  const selectionUi = serviceAreaJourney?.selectionUi ?? "LIST";
+  const requiresRecipientStep =
+    destinationType === "SERVICE_AREA" &&
+    (tippingMode === "TEAM_OR_INDIVIDUAL" ||
+      tippingMode === "INDIVIDUAL_ONLY" ||
+      tippingMode === "SHIFT_SELECTOR");
+  const initialRecipientMode =
+    tippingMode === "INDIVIDUAL_ONLY" || (tippingMode === "SHIFT_SELECTOR" && !showTeamOption)
+      ? "INDIVIDUAL"
+      : "TEAM";
+  const [step, setStep] = useState<"recipient" | "amount" | "payment">(
+    requiresRecipientStep ? "recipient" : "amount",
+  );
+  const [selectedRecipientMode, setSelectedRecipientMode] = useState<"TEAM" | "INDIVIDUAL">(
+    initialRecipientMode,
+  );
+  const [selectedStaffMemberId, setSelectedStaffMemberId] = useState<string | null>(null);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>("APPLE_PAY");
   const [cardName, setCardName] = useState("");
   const [cardNumber, setCardNumber] = useState("");
@@ -67,6 +109,27 @@ export function TipForm({
       : selectedPaymentMethod === "PAYPAL"
         ? "Pay with PayPal"
         : "Pay with card";
+
+  const surfaceColor = "rgba(255, 251, 246, 0.92)";
+  const borderColor = "rgba(97, 77, 61, 0.55)";
+  const subtleBorderColor = "rgba(97, 77, 61, 0.24)";
+  const mutedTextColor = "rgba(79, 62, 50, 0.72)";
+  const surfaceTextColor = "#4b3b2f";
+  const surfaceMutedTextColor = "rgba(75, 59, 47, 0.72)";
+
+  const selectedStaffMemberName =
+    serviceAreaStaffOptions.find((staffMember) => staffMember.id === selectedStaffMemberId)?.displayName ??
+    null;
+
+  const displayTargetName =
+    destinationType === "SERVICE_AREA" && selectedRecipientMode === "INDIVIDUAL" && selectedStaffMemberName
+      ? selectedStaffMemberName
+      : targetName;
+
+  const serviceAreaContextLabel = departmentName ?? displayMode?.replaceAll("_", " ").toLowerCase() ?? "service area";
+  const disableContinueFromRecipient =
+    selectedRecipientMode === "INDIVIDUAL" &&
+    (individualTippingUnavailable || serviceAreaStaffOptions.length === 0 || !selectedStaffMemberId);
 
   function validateCardFields() {
     if (selectedPaymentMethod !== "CARD") {
@@ -107,6 +170,16 @@ export function TipForm({
       return;
     }
 
+    if (
+      destinationType === "SERVICE_AREA" &&
+      selectedRecipientMode === "INDIVIDUAL" &&
+      !selectedStaffMemberId
+    ) {
+      setError("Choose the team member you want to tip.");
+      setStep("recipient");
+      return;
+    }
+
     setIsSubmitting(true);
     setError(null);
 
@@ -119,6 +192,12 @@ export function TipForm({
         slug,
         amount: chosenAmount,
         paymentMethod: selectedPaymentMethod,
+        selectedRecipientMode:
+          destinationType === "SERVICE_AREA" ? selectedRecipientMode : undefined,
+        selectedStaffMemberId:
+          destinationType === "SERVICE_AREA" && selectedRecipientMode === "INDIVIDUAL"
+            ? selectedStaffMemberId
+            : undefined,
       }),
     });
 
@@ -135,14 +214,146 @@ export function TipForm({
 
   return (
     <div className="mt-10">
-      {step === "amount" ? (
+      {step === "recipient" ? (
+        <section className="space-y-5 text-center">
+          <div>
+            <h2 className="text-[2rem] font-semibold" style={{ color: textColor }}>
+              {tippingMode === "SHIFT_SELECTOR" ? "Who served you?" : `Tip ${targetName}`}
+            </h2>
+            <p className="mt-2 text-base" style={{ color: textColor }}>
+              {tippingMode === "TEAM_OR_INDIVIDUAL"
+                ? `Choose whether to tip the ${serviceAreaContextLabel} team or an individual.`
+                : `Choose the team member for this ${serviceAreaContextLabel} tip.`}
+            </p>
+          </div>
+
+          {tippingMode === "TEAM_OR_INDIVIDUAL" || (tippingMode === "SHIFT_SELECTOR" && showTeamOption) ? (
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRecipientMode("TEAM");
+                  setError(null);
+                }}
+                className="rounded-xl border px-4 py-4 text-base font-semibold"
+                style={
+                  selectedRecipientMode === "TEAM"
+                    ? { backgroundColor: buttonColor, color: buttonTextColor, borderColor: buttonColor }
+                    : { color: surfaceTextColor, borderColor, backgroundColor: surfaceColor }
+                }
+              >
+                Tip the team
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedRecipientMode("INDIVIDUAL");
+                  setError(null);
+                }}
+                className="rounded-xl border px-4 py-4 text-base font-semibold"
+                style={
+                  selectedRecipientMode === "INDIVIDUAL"
+                    ? { backgroundColor: buttonColor, color: buttonTextColor, borderColor: buttonColor }
+                    : { color: surfaceTextColor, borderColor, backgroundColor: surfaceColor }
+                }
+              >
+                Tip an individual
+              </button>
+            </div>
+          ) : null}
+
+          {selectedRecipientMode === "INDIVIDUAL" ? (
+            <div className="grid gap-3">
+              {individualTippingUnavailable && individualTippingMessage ? (
+                <p className="rounded-2xl border px-4 py-3 text-sm" style={{ borderColor: "#cfaf98", backgroundColor: "#fff4ed", color: "#8b5a3c" }}>
+                  {individualTippingMessage}
+                </p>
+              ) : null}
+              {selectionUi === "DROPDOWN" ? (
+                <select
+                  value={selectedStaffMemberId ?? ""}
+                  onChange={(event) => {
+                    setSelectedStaffMemberId(event.target.value || null);
+                    setError(null);
+                  }}
+                  className="w-full rounded-xl border px-4 py-4 text-lg font-semibold outline-none"
+                  style={{ borderColor, backgroundColor: surfaceColor, color: surfaceTextColor }}
+                >
+                  <option value="">Select a team member</option>
+                  {serviceAreaStaffOptions.map((staffMember) => (
+                    <option key={staffMember.id} value={staffMember.id}>
+                      {staffMember.roleLabel
+                        ? `${staffMember.displayName} · ${staffMember.roleLabel}`
+                        : staffMember.displayName}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                serviceAreaStaffOptions.map((staffMember) => (
+                  <button
+                    key={staffMember.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedStaffMemberId(staffMember.id);
+                      setError(null);
+                    }}
+                    className="w-full rounded-xl border px-5 py-4 text-left text-lg font-semibold transition"
+                    style={
+                      selectedStaffMemberId === staffMember.id
+                        ? { backgroundColor: buttonColor, color: buttonTextColor, borderColor: buttonColor }
+                        : { color: surfaceTextColor, borderColor, backgroundColor: surfaceColor }
+                    }
+                  >
+                    <span className="block">{staffMember.displayName}</span>
+                    {staffMember.roleLabel ? (
+                      <span
+                        className="mt-1 block text-sm font-medium"
+                        style={{
+                          color:
+                            selectedStaffMemberId === staffMember.id
+                              ? "rgba(255, 255, 255, 0.82)"
+                              : surfaceMutedTextColor,
+                        }}
+                      >
+                        {staffMember.roleLabel}
+                      </span>
+                    ) : null}
+                  </button>
+                ))
+              )}
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => {
+              if (individualTippingUnavailable) {
+                setError(individualTippingMessage ?? "Individual tipping is unavailable right now.");
+                return;
+              }
+              if (selectedRecipientMode === "INDIVIDUAL" && !selectedStaffMemberId) {
+                setError("Choose the team member you want to tip.");
+                return;
+              }
+              setStep("amount");
+            }}
+            className="w-full rounded-xl px-6 py-4 text-lg font-semibold transition"
+            style={{ backgroundColor: buttonColor, color: buttonTextColor }}
+            disabled={disableContinueFromRecipient}
+          >
+            Continue
+          </button>
+        </section>
+      ) : step === "amount" ? (
         <section className="space-y-4 text-center">
           <div>
             <h2 className="text-[2rem] font-semibold" style={{ color: textColor }}>
-              Tip {targetName}
+              Tip {displayTargetName}
             </h2>
             <p className="mt-2 text-base" style={{ color: textColor }}>
-              Support exceptional services.
+              {destinationType === "SERVICE_AREA" && selectedRecipientMode === "TEAM"
+                ? `Support the ${serviceAreaContextLabel} team.`
+                : "Support exceptional services."}
             </p>
           </div>
 
@@ -161,12 +372,12 @@ export function TipForm({
                     setStep("payment");
                   }}
                   className={`w-full rounded-xl border px-5 py-4 text-2xl font-semibold transition ${
-                    isSelected ? "border-transparent" : "border-[#1f1f1f] bg-white"
+                    isSelected ? "border-transparent" : ""
                   }`}
                   style={
                     isSelected
                       ? { backgroundColor: buttonColor, color: buttonTextColor }
-                      : { color: textColor }
+                      : { color: surfaceTextColor, borderColor, backgroundColor: surfaceColor }
                   }
                 >
                   {formatCurrency(amount, currency)}
@@ -174,12 +385,12 @@ export function TipForm({
               );
             })}
 
-            <div className="rounded-xl border border-[#1f1f1f] bg-white px-4 py-3">
+            <div className="rounded-xl border px-4 py-3" style={{ borderColor, backgroundColor: surfaceColor }}>
               <label htmlFor="custom-amount" className="sr-only">
                 Custom tip amount
               </label>
               <div className="flex items-center gap-3">
-                <span className="text-xl font-semibold text-[#111111]">{currencySymbol}</span>
+                <span className="text-xl font-semibold" style={{ color: surfaceTextColor }}>{currencySymbol}</span>
                 <input
                   id="custom-amount"
                   inputMode="decimal"
@@ -190,7 +401,8 @@ export function TipForm({
                     setCustomAmount(event.target.value);
                     setError(null);
                   }}
-                  className="w-full border-none bg-transparent text-xl font-semibold text-[#111111] outline-none placeholder:text-[#767676]"
+                  className="w-full border-none bg-transparent text-xl font-semibold outline-none"
+                  style={{ color: surfaceTextColor }}
                 />
               </div>
             </div>
@@ -204,8 +416,8 @@ export function TipForm({
                 }
                 setStep("payment");
               }}
-              className="w-full rounded-xl border border-[#1f1f1f] bg-white px-5 py-4 text-2xl font-semibold"
-              style={{ color: textColor }}
+              className="w-full rounded-xl border px-5 py-4 text-2xl font-semibold"
+              style={{ color: surfaceTextColor, borderColor, backgroundColor: surfaceColor }}
             >
               Custom
             </button>
@@ -215,17 +427,17 @@ export function TipForm({
         <section className="space-y-6">
           <button
             type="button"
-            onClick={() => setStep("amount")}
-            className="flex h-11 w-11 items-center justify-center rounded-full text-xl"
-            style={{ backgroundColor: buttonColor, color: buttonTextColor }}
+            onClick={() => setStep(requiresRecipientStep ? "recipient" : "amount")}
+            className="flex h-11 w-11 items-center justify-center rounded-full border text-xl"
+            style={{ backgroundColor: surfaceColor, color: surfaceTextColor, borderColor: subtleBorderColor }}
             aria-label="Go back"
           >
-            ?
+            ←
           </button>
 
           <div className="text-center">
             <h2 className="text-[2rem] font-semibold" style={{ color: textColor }}>
-              Tip {targetName}
+              Tip {displayTargetName}
             </h2>
           </div>
 
@@ -250,11 +462,16 @@ export function TipForm({
                     type="button"
                     onClick={() => setSelectedPaymentMethod(method.value)}
                     className={`rounded-2xl border px-3 py-4 text-sm font-semibold transition ${
-                      isSelected
-                        ? "border-[#111111] bg-white shadow-[0_8px_20px_rgba(17,17,17,0.12)]"
-                        : "border-[#d4d4d4] bg-white"
-                    }`}
-                    style={{ color: isSelected ? textColor : "#6a6a6a" }}
+                  isSelected
+                    ? ""
+                    : ""
+                }`}
+                    style={{
+                      color: isSelected ? surfaceTextColor : surfaceMutedTextColor,
+                      borderColor: isSelected ? borderColor : subtleBorderColor,
+                      backgroundColor: surfaceColor,
+                      boxShadow: isSelected ? "0 8px 20px rgba(93, 67, 46, 0.12)" : "none",
+                    }}
                   >
                     {method.shortLabel}
                   </button>
@@ -264,9 +481,9 @@ export function TipForm({
           </div>
 
           {selectedPaymentMethod === "CARD" ? (
-            <div className="space-y-3 rounded-2xl bg-white p-4 shadow-[0_8px_24px_rgba(17,17,17,0.08)]">
+            <div className="space-y-3 rounded-2xl p-4 shadow-[0_8px_24px_rgba(93,67,46,0.08)]" style={{ backgroundColor: surfaceColor }}>
               <label className="block text-left">
-                <span className="text-sm font-medium text-[#333333]">Name on card</span>
+                <span className="text-sm font-medium" style={{ color: mutedTextColor }}>Name on card</span>
                 <input
                   value={cardName}
                   onChange={(event) => {
@@ -274,12 +491,13 @@ export function TipForm({
                     setError(null);
                   }}
                   placeholder="Jane Smith"
-                  className="mt-2 w-full rounded-xl border border-[#d4d4d4] bg-white px-4 py-3 text-base text-[#111111] outline-none"
+                  className="mt-2 w-full rounded-xl border px-4 py-3 text-base outline-none"
+                  style={{ borderColor: subtleBorderColor, backgroundColor: surfaceColor, color: surfaceTextColor }}
                 />
               </label>
 
               <label className="block text-left">
-                <span className="text-sm font-medium text-[#333333]">Card number</span>
+                <span className="text-sm font-medium" style={{ color: mutedTextColor }}>Card number</span>
                 <input
                   value={cardNumber}
                   onChange={(event) => {
@@ -288,13 +506,14 @@ export function TipForm({
                   }}
                   inputMode="numeric"
                   placeholder="1234 1234 1234 1234"
-                  className="mt-2 w-full rounded-xl border border-[#d4d4d4] bg-white px-4 py-3 text-base text-[#111111] outline-none"
+                  className="mt-2 w-full rounded-xl border px-4 py-3 text-base outline-none"
+                  style={{ borderColor: subtleBorderColor, backgroundColor: surfaceColor, color: surfaceTextColor }}
                 />
               </label>
 
               <div className="grid grid-cols-2 gap-3">
                 <label className="block text-left">
-                  <span className="text-sm font-medium text-[#333333]">Expiry</span>
+                  <span className="text-sm font-medium" style={{ color: mutedTextColor }}>Expiry</span>
                   <input
                     value={cardExpiry}
                     onChange={(event) => {
@@ -303,12 +522,13 @@ export function TipForm({
                     }}
                     inputMode="numeric"
                     placeholder="MM/YY"
-                    className="mt-2 w-full rounded-xl border border-[#d4d4d4] bg-white px-4 py-3 text-base text-[#111111] outline-none"
+                    className="mt-2 w-full rounded-xl border px-4 py-3 text-base outline-none"
+                    style={{ borderColor: subtleBorderColor, backgroundColor: surfaceColor, color: surfaceTextColor }}
                   />
                 </label>
 
                 <label className="block text-left">
-                  <span className="text-sm font-medium text-[#333333]">CVC</span>
+                  <span className="text-sm font-medium" style={{ color: mutedTextColor }}>CVC</span>
                   <input
                     value={cardCvc}
                     onChange={(event) => {
@@ -317,7 +537,8 @@ export function TipForm({
                     }}
                     inputMode="numeric"
                     placeholder="123"
-                    className="mt-2 w-full rounded-xl border border-[#d4d4d4] bg-white px-4 py-3 text-base text-[#111111] outline-none"
+                    className="mt-2 w-full rounded-xl border px-4 py-3 text-base outline-none"
+                    style={{ borderColor: subtleBorderColor, backgroundColor: surfaceColor, color: surfaceTextColor }}
                   />
                 </label>
               </div>
@@ -337,7 +558,7 @@ export function TipForm({
       )}
 
       {error ? (
-        <p className="mt-5 rounded-2xl border border-[#d9b2a6] bg-[#fff3ef] px-4 py-3 text-sm text-[#8b3c27]">
+        <p className="mt-5 rounded-2xl border px-4 py-3 text-sm" style={{ borderColor: "#cfaf98", backgroundColor: "#fff4ed", color: "#8b5a3c" }}>
           {error}
         </p>
       ) : null}

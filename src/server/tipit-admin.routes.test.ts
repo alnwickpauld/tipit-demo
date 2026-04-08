@@ -30,7 +30,7 @@ async function requestJson<T>(
     body: options?.body === undefined ? undefined : JSON.stringify(options.body),
   });
 
-  const response = await router(request, path);
+  const response = await router(request, request.nextUrl.pathname.replace("/api/v1", ""));
   const body = (await response.json()) as T;
 
   return {

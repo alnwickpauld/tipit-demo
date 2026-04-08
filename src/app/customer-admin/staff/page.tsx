@@ -26,6 +26,20 @@ export default async function CustomerStaffPage() {
           name: true,
         },
       },
+      departmentAssignments: {
+        where: { isActive: true },
+        orderBy: [{ isPrimary: "desc" }, { department: { name: "asc" } }],
+        select: {
+          department: {
+            select: {
+              id: true,
+              venueId: true,
+              name: true,
+              type: true,
+            },
+          },
+        },
+      },
     },
   });
   const venues = await prisma.venue.findMany({
@@ -36,8 +50,20 @@ export default async function CustomerStaffPage() {
       name: true,
     },
   });
+  const departments = await prisma.department.findMany({
+    where: { customerId: user.customerId! },
+    orderBy: [{ venue: { name: "asc" } }, { name: "asc" }],
+    select: {
+      id: true,
+      venueId: true,
+      name: true,
+      type: true,
+    },
+  });
   const staffWithUrls = staffMembers.map((staffMember) => ({
     ...staffMember,
+    departmentIds: staffMember.departmentAssignments.map((assignment) => assignment.department.id),
+    departments: staffMember.departmentAssignments.map((assignment) => assignment.department),
     publicTipUrl: getStaffTipUrl(staffMember.id),
   }));
 
@@ -45,6 +71,7 @@ export default async function CustomerStaffPage() {
     <CustomerStaffManager
       staffMembers={staffWithUrls}
       venues={venues}
+      departments={departments}
       canManage={user.role === "CUSTOMER_ADMIN" || user.role === "CUSTOMER_MANAGER"}
     />
   );

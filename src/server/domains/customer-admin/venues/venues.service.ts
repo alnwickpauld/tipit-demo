@@ -146,6 +146,8 @@ export class VenuesService {
         _count: {
           select: {
             staffMembers: true,
+            departments: true,
+            serviceAreas: true,
             pools: true,
             allocationRules: true,
             tipTransactions: true,
@@ -163,6 +165,8 @@ export class VenuesService {
 
     const dependencyCount =
       venue._count.staffMembers +
+      venue._count.departments +
+      venue._count.serviceAreas +
       venue._count.pools +
       venue._count.allocationRules +
       venue._count.tipTransactions +

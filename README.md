@@ -225,12 +225,65 @@ The app includes basic production-oriented structured logging for:
 
 Logs are emitted as JSON to stdout/stderr so they work cleanly with Vercel logging.
 
+## Future Hospitality Integrations
+
+The backend is prepared for future integrations with:
+
+- Oracle Simphony
+- Ameego
+- Planet
+- Sage
+
+Integration-ready schema support now exists for:
+
+- external references on venues, departments, staff members, and payroll periods
+- imported hours worked
+- imported card/service charge data
+- payroll export batches and lines
+
+Provider-specific logic should plug in through:
+
+- [contracts.ts](/Users/PaulDavidson/OneDrive%20-%20MEDIAWORKS%20UK%20LTD/Documents/Tipit/src/server/integrations/contracts.ts)
+
+Integration notes and provider mapping live in:
+
+- [integrations.md](/Users/PaulDavidson/OneDrive%20-%20MEDIAWORKS%20UK%20LTD/Documents/Tipit/docs/integrations.md)
+
 ## Seeded Demo Credentials
 
 After running `npm run db:seed` locally:
 
 - `platform-admin@tipit.example` / `Password123!`
-- `manager@sharkclub.example` / `Password123!`
-- `ops@sharkclub.example` / `Password123!`
-- `admin@ember.example` / `Password123!`
-- `viewer@ember.example` / `Password123!`
+- `admin@sandman.example` / `Password123!`
+- `manager@sandman.example` / `Password123!`
+- `viewer@sandman.example` / `Password123!`
+
+## Pilot Rollout Package
+
+The seed script provisions a client-demo hospitality pilot package for `Sandman Hotel Group UK` with:
+
+- two venues:
+  - `Sandman Signature Newcastle`
+  - `Portmarnock Resort`
+- rollout enabled only for `MEETING_EVENTS`, `BREAKFAST`, and `ROOM_SERVICE`
+- `BAR` and `RESTAURANT` disabled by default
+- realistic active, scheduled, completed, and cancelled shifts
+- customer-scoped staff, pools, payroll inputs, successful tips, failed tips, refunded tips, QR assets, and audit logs
+- public journeys that only expose active-shift staff where individual selection is allowed
+
+Sample public URLs after seeding:
+
+- `http://localhost:3000/tip/ssn-breakfast-table-card-a`
+- `http://localhost:3000/tip/ssn-breakfast-table-card-b`
+- `http://localhost:3000/tip/ssn-breakfast-host-stand`
+- `http://localhost:3000/tip/ssn-room-service-tray-card`
+- `http://localhost:3000/tip/ssn-room-service-in-room-tent-card`
+- `http://localhost:3000/tip/pmr-ballroom-event-sign`
+- `http://localhost:3000/tip/pmr-conference-foyer-sign`
+- `http://localhost:3000/tip/pmr-private-dining-qr`
+
+Expected pilot journey behavior:
+
+- `Breakfast` journeys: `TEAM_OR_INDIVIDUAL`
+- `Room Service` journeys: `TEAM_ONLY`
+- `Meeting & Events` journeys: `TEAM_OR_INDIVIDUAL`

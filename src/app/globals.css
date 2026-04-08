@@ -50,9 +50,58 @@ input {
   letter-spacing: 0.06em;
 }
 
+.sandman-admin-shell a {
+  color: inherit;
+}
+
+.sandman-admin-shell .customer-admin-manager h2,
+.sandman-admin-shell .customer-admin-manager h3 {
+  color: #4a3b31 !important;
+}
+
+.sandman-admin-shell .customer-admin-manager p {
+  color: inherit;
+}
+
+.sandman-admin-shell .customer-admin-manager > div,
+.sandman-admin-shell .customer-admin-manager > section,
+.sandman-admin-shell .customer-admin-manager article {
+  border-color: #dccbbb !important;
+}
+
+.sandman-admin-shell .customer-admin-manager input,
+.sandman-admin-shell .customer-admin-manager select,
+.sandman-admin-shell .customer-admin-manager textarea {
+  background: rgba(255, 250, 244, 0.94) !important;
+  border-color: #cdb9a4 !important;
+  color: #43362f !important;
+}
+
+.sandman-admin-shell .customer-admin-manager input::placeholder,
+.sandman-admin-shell .customer-admin-manager textarea::placeholder {
+  color: #9a8574 !important;
+}
+
+.sandman-admin-shell .customer-admin-manager button:not(:disabled),
+.sandman-admin-shell .customer-admin-manager a.rounded-full {
+  transition:
+    opacity 0.2s ease,
+    border-color 0.2s ease,
+    background-color 0.2s ease,
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.sandman-admin-shell .customer-admin-manager button:not(:disabled):hover,
+.sandman-admin-shell .customer-admin-manager a.rounded-full:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+  box-shadow: 0 12px 24px rgba(84, 62, 43, 0.12);
+}
+
 .customer-admin-manager h2,
 .customer-admin-manager h3 {
-  color: #fff !important;
+  color: #4a3b31 !important;
 }
 
 .customer-admin-manager p {
@@ -61,13 +110,13 @@ input {
 
 .customer-admin-manager input,
 .customer-admin-manager select {
-  background: #0b0b0b !important;
-  border-color: #4a4a4a !important;
-  color: #fff !important;
+  background: rgba(255, 250, 244, 0.94) !important;
+  border-color: #cdb9a4 !important;
+  color: #43362f !important;
 }
 
 .customer-admin-manager input::placeholder {
-  color: #666 !important;
+  color: #9a8574 !important;
 }
 
 .customer-admin-manager button:not(:disabled),
@@ -82,7 +131,7 @@ input {
 
 .customer-admin-manager button:not(:disabled):hover,
 .customer-admin-manager a.rounded-full:hover {
-  opacity: 0.9;
+  opacity: 0.95;
   transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 12px 24px rgba(84, 62, 43, 0.12);
 }

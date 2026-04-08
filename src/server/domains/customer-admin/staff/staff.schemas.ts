@@ -3,11 +3,13 @@ import { z } from "zod";
 export const listStaffQuerySchema = z.object({
   customerId: z.string().min(1).optional(),
   venueId: z.string().min(1).optional(),
+  departmentId: z.string().min(1).optional(),
 });
 
 export const createStaffSchema = z.object({
   customerId: z.string().min(1).optional(),
   venueId: z.string().min(1),
+  departmentIds: z.array(z.string().min(1)).optional(),
   externalPayrollRef: z.string().optional(),
   firstName: z.string().min(1),
   lastName: z.string().min(1),

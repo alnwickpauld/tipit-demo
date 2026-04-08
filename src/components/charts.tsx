@@ -4,6 +4,7 @@ import {
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -22,39 +23,53 @@ type PoolChartProps = {
 };
 
 export function TrendChart({ data }: TrendChartProps) {
+  const hasSinglePoint = data.length === 1;
+
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer>
         <LineChart data={data} margin={{ left: 8, right: 8, top: 16, bottom: 8 }}>
-          <CartesianGrid strokeDasharray="4 6" vertical={true} stroke="#162243" />
+          <CartesianGrid strokeDasharray="4 6" vertical={true} stroke="#d9c8b8" />
           <XAxis
             dataKey="label"
             tickLine={false}
             axisLine={false}
-            tick={{ fill: "#d8d8d8", fontSize: 12 }}
+            tick={{ fill: "#8c7a6c", fontSize: 12 }}
           />
           <YAxis
             tickLine={false}
             axisLine={false}
-            tick={{ fill: "#d8d8d8", fontSize: 12 }}
+            tick={{ fill: "#8c7a6c", fontSize: 12 }}
           />
           <Tooltip
             contentStyle={{
-              backgroundColor: "#0a0a0a",
-              border: "1px solid #283567",
+              backgroundColor: "#fffaf5",
+              border: "1px solid #d7c5b2",
               borderRadius: "16px",
-              color: "#ffffff",
+              color: "#43362f",
             }}
-            labelStyle={{ color: "#f5d31d" }}
+            labelStyle={{ color: "#8f7862" }}
             formatter={(value: number) => [`£${value.toFixed(2)}`, "Gross tips"]}
           />
+          {hasSinglePoint ? (
+            <ReferenceLine
+              y={data[0]?.grossTips ?? 0}
+              stroke="#5f4a3b"
+              strokeWidth={3}
+              strokeDasharray="0"
+            />
+          ) : null}
           <Line
             type="monotone"
             dataKey="grossTips"
-            stroke="#f5d31d"
+            stroke="#5f4a3b"
             strokeWidth={3}
-            dot={{ r: 0 }}
-            activeDot={{ r: 5, fill: "#f5d31d", stroke: "#050505", strokeWidth: 2 }}
+            dot={
+              hasSinglePoint
+                ? { r: 6, fill: "#5f4a3b", stroke: "#fffaf5", strokeWidth: 2 }
+                : { r: 0 }
+            }
+            activeDot={{ r: 6, fill: "#5f4a3b", stroke: "#fffaf5", strokeWidth: 2 }}
           />
         </LineChart>
       </ResponsiveContainer>
@@ -63,13 +78,13 @@ export function TrendChart({ data }: TrendChartProps) {
 }
 
 export function PoolChart({ data }: PoolChartProps) {
-  const colors = ["#223252", "#50627f", "#7b8ba6", "#9dadc7"];
+  const colors = ["#8f7862", "#b49e89", "#d3c2b0", "#eadfd3"];
 
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer>
         <BarChart data={data} layout="vertical" margin={{ left: 12, right: 12 }}>
-          <CartesianGrid strokeDasharray="4 4" horizontal={false} stroke="#e6ebf5" />
+          <CartesianGrid strokeDasharray="4 4" horizontal={false} stroke="#e2d5c7" />
           <XAxis type="number" tickLine={false} axisLine={false} />
           <YAxis
             type="category"

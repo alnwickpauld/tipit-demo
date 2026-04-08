@@ -12,7 +12,7 @@
     "lint": "prisma validate && tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "npm run test:server",
-    "test:server": "node --import tsx --test src/server/**/*.test.ts",
+    "test:server": "node --import tsx --test --test-concurrency=1 src/server/**/*.test.ts",
     "test:payroll": "node --import tsx --test src/services/payroll-calculation-service.test.ts",
     "db:migrate": "prisma migrate dev --name init",
     "db:migrate:deploy": "prisma migrate deploy",

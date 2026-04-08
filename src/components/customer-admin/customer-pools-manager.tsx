@@ -294,7 +294,7 @@ export function CustomerPoolsManager({
 
   return (
     <section className="customer-admin-manager space-y-6">
-      <div className="rounded-[1.8rem] border border-[#151515] bg-[#090909] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.25)]">
+      <div className="rounded-[1.8rem] border border-[#d9c8b8] bg-[rgba(255,251,246,0.84)] p-6 shadow-[0_24px_60px_rgba(96,71,49,0.10)]">
         <p className="text-xs uppercase tracking-[0.26em] text-[#70809b]">Pools</p>
         <div className="mt-2 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -336,7 +336,7 @@ export function CustomerPoolsManager({
       </div>
 
       {canManage ? (
-        <div className="rounded-[1.8rem] border border-[#151515] bg-[#090909] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.25)]">
+      <div className="rounded-[1.8rem] border border-[#d9c8b8] bg-[rgba(255,251,246,0.84)] p-6 shadow-[0_24px_60px_rgba(96,71,49,0.10)]">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label className="block">
               <FieldLabel>Venue</FieldLabel>
@@ -402,7 +402,7 @@ export function CustomerPoolsManager({
               type="button"
               disabled={isPending}
               onClick={handleCreate}
-              className="rounded-full border border-[#f5d31d] bg-[#f5d31d] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full border border-[#b49e89] bg-[#b49e89] px-5 py-3 text-sm font-semibold text-[#fffaf4] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Add pool
             </button>
@@ -419,12 +419,12 @@ export function CustomerPoolsManager({
           return (
             <article
               key={pool.id}
-              className="rounded-[1.5rem] border border-[#3f3f3f] bg-[#090909] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.22)]"
+                className="rounded-[1.5rem] border border-[#d9c8b8] bg-[rgba(255,251,246,0.84)] p-5 shadow-[0_24px_60px_rgba(96,71,49,0.10)]"
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="font-semibold text-white">{pool.name}</p>
-                  <div className="mt-3 rounded-2xl border border-[#4a4a4a] bg-[#0b0b0b] p-3">
+                  <div className="mt-3 rounded-2xl border border-[#dcc8b2] bg-[rgba(255,251,246,0.92)] p-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8d8d8d]">
                       Public tip URL
                     </p>
@@ -440,7 +440,7 @@ export function CustomerPoolsManager({
                       <button
                         type="button"
                         onClick={() => handleCopy(pool.publicTipUrl, "Pool")}
-                        className="rounded-full border border-[#4a4a4a] bg-[#0b0b0b] px-4 py-2 text-sm font-semibold text-white"
+                    className="rounded-full border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-2 text-sm font-semibold text-[#43362f]"
                       >
                         Copy URL
                       </button>
@@ -448,7 +448,7 @@ export function CustomerPoolsManager({
                         href={pool.publicTipUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-full border border-[#4a4a4a] bg-[#0b0b0b] px-4 py-2 text-sm font-semibold text-white"
+                    className="rounded-full border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-2 text-sm font-semibold text-[#43362f]"
                       >
                         Open tip page
                       </a>
@@ -467,14 +467,14 @@ export function CustomerPoolsManager({
                       <button
                         type="button"
                         onClick={() => setEditingId(isEditing ? null : pool.id)}
-                        className="rounded-full border border-[#4a4a4a] bg-[#0b0b0b] px-4 py-2 text-sm font-semibold text-white"
+                    className="rounded-full border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-2 text-sm font-semibold text-[#43362f]"
                       >
                         {isEditing ? "Close" : "Edit"}
                       </button>
                       <button
                         type="button"
                         onClick={() => handleStatusToggle(pool)}
-                        className="rounded-full border border-[#4a4a4a] bg-[#0b0b0b] px-4 py-2 text-sm font-semibold text-white"
+                    className="rounded-full border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-2 text-sm font-semibold text-[#43362f]"
                       >
                         {pool.status === "ACTIVE" ? "Deactivate" : "Activate"}
                       </button>
@@ -570,7 +570,7 @@ export function CustomerPoolsManager({
                       type="button"
                       disabled={isPending}
                       onClick={() => handleUpdate(pool.id)}
-                      className="rounded-full border border-[#f5d31d] bg-[#f5d31d] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-full border border-[#b49e89] bg-[#b49e89] px-5 py-3 text-sm font-semibold text-[#fffaf4] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Save changes
                     </button>

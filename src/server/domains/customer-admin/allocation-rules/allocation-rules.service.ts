@@ -6,6 +6,10 @@ import { NotFoundError, ValidationAppError } from "../../../shared/errors/app-er
 
 type AllocationRuleInput = {
   venueId: string;
+  departmentId?: string;
+  serviceAreaId?: string;
+  scope: "VENUE_DEFAULT" | "DEPARTMENT" | "SERVICE_AREA";
+  selectionType?: "TEAM" | "INDIVIDUAL";
   name: string;
   description?: string;
   priority: number;
@@ -13,7 +17,7 @@ type AllocationRuleInput = {
   effectiveFrom?: Date;
   effectiveTo?: Date;
   lines: Array<{
-    recipientType: "STAFF" | "POOL";
+    recipientType: "STAFF" | "POOL" | "SELECTED_STAFF";
     staffMemberId?: string;
     poolId?: string;
     percentageBps: number;
@@ -28,10 +32,32 @@ function validatePercentageTotal(lines: AllocationRuleInput["lines"]) {
   }
 }
 
+function normalizeRuleLines(
+  lines: Array<{
+    recipientType: "STAFF" | "POOL" | "SELECTED_STAFF";
+    staffMemberId?: string | null;
+    poolId?: string | null;
+    percentageBps: number;
+    sortOrder: number;
+  }>,
+): AllocationRuleInput["lines"] {
+  return lines.map((line) => ({
+    recipientType: line.recipientType,
+    staffMemberId: line.staffMemberId ?? undefined,
+    poolId: line.poolId ?? undefined,
+    percentageBps: line.percentageBps,
+    sortOrder: line.sortOrder,
+  }));
+}
+
 function buildRuleUpdateData(
   input: Partial<AllocationRuleInput>,
 ): Prisma.AllocationRuleUncheckedUpdateInput {
   return {
+    departmentId: input.departmentId,
+    serviceAreaId: input.serviceAreaId,
+    scope: input.scope,
+    selectionType: input.selectionType,
     name: input.name,
     description: input.description,
     priority: input.priority,
@@ -45,7 +71,7 @@ export class AllocationRulesService {
   constructor(
     private readonly db: Pick<
       PrismaClient,
-      "allocationRule" | "allocationRuleLine" | "venue" | "staffMember" | "pool"
+      "allocationRule" | "allocationRuleLine" | "venue" | "staffMember" | "pool" | "department" | "serviceArea"
     > = prisma,
   ) {}
 
@@ -55,6 +81,8 @@ export class AllocationRulesService {
       orderBy: [{ venue: { name: "asc" } }, { priority: "asc" }],
       include: {
         venue: { select: { id: true, name: true } },
+        department: { select: { id: true, name: true, type: true } },
+        serviceArea: { select: { id: true, name: true, slug: true } },
         lines: {
           include: {
             staffMember: { select: { id: true, firstName: true, lastName: true, displayName: true } },
@@ -67,11 +95,15 @@ export class AllocationRulesService {
 
   async create(customerId: string, input: AllocationRuleInput) {
     validatePercentageTotal(input.lines);
-    await this.assertReferences(customerId, input.venueId, input.lines);
+    await this.assertReferences(customerId, input);
 
     return this.db.allocationRule.create({
       data: {
         venueId: input.venueId,
+        departmentId: input.departmentId,
+        serviceAreaId: input.serviceAreaId,
+        scope: input.scope,
+        selectionType: input.selectionType,
         name: input.name,
         description: input.description,
         priority: input.priority,
@@ -82,29 +114,50 @@ export class AllocationRulesService {
           create: input.lines,
         },
       },
-      include: { lines: true },
+      include: { lines: true, department: true, serviceArea: true },
     });
   }
 
   async update(customerId: string, ruleId: string, input: Partial<AllocationRuleInput>) {
     const existing = await this.db.allocationRule.findFirst({
       where: { id: ruleId, venue: { customerId } },
+      include: {
+        lines: true,
+      },
     });
     if (!existing) {
       throw new NotFoundError("Allocation rule not found");
     }
 
     const venueId = input.venueId ?? existing.venueId;
+    const mergedInput: AllocationRuleInput = {
+      venueId,
+      departmentId: input.departmentId ?? existing.departmentId ?? undefined,
+      serviceAreaId: input.serviceAreaId ?? existing.serviceAreaId ?? undefined,
+      scope: input.scope ?? existing.scope,
+      selectionType: input.selectionType ?? existing.selectionType ?? undefined,
+      name: input.name ?? existing.name,
+      description: input.description ?? existing.description ?? undefined,
+      priority: input.priority ?? existing.priority,
+      isActive: input.isActive ?? existing.isActive,
+      effectiveFrom: input.effectiveFrom ?? existing.effectiveFrom ?? undefined,
+      effectiveTo: input.effectiveTo ?? existing.effectiveTo ?? undefined,
+      lines: input.lines ?? [],
+    };
+
     if (input.lines) {
       validatePercentageTotal(input.lines);
-      await this.assertReferences(customerId, venueId, input.lines);
     }
+    await this.assertReferences(customerId, {
+      ...mergedInput,
+      lines: input.lines ?? normalizeRuleLines(existing.lines),
+    });
 
     if (!input.lines) {
       return this.db.allocationRule.update({
         where: { id: ruleId },
         data: buildRuleUpdateData(input),
-        include: { lines: true },
+        include: { lines: true, department: true, serviceArea: true },
       });
     }
 
@@ -119,22 +172,71 @@ export class AllocationRulesService {
           create: lines,
         },
       },
-      include: { lines: true },
+      include: { lines: true, department: true, serviceArea: true },
     });
   }
 
-  private async assertReferences(
-    customerId: string,
-    venueId: string,
-    lines: AllocationRuleInput["lines"],
-  ) {
+  private async assertReferences(customerId: string, input: AllocationRuleInput) {
     const venue = await this.db.venue.findFirst({
-      where: { id: venueId, customerId },
+      where: { id: input.venueId, customerId },
       select: { id: true },
     });
 
     if (!venue) {
       throw new NotFoundError("Venue not found");
+    }
+
+    const lines = input.lines;
+
+    if (input.scope === "DEPARTMENT" && !input.departmentId) {
+      throw new ValidationAppError("Department-scoped rules must specify a department.");
+    }
+
+    if (input.scope === "SERVICE_AREA" && !input.serviceAreaId) {
+      throw new ValidationAppError("Service-area-scoped rules must specify a service area.");
+    }
+
+    if (input.scope === "VENUE_DEFAULT" && (input.departmentId || input.serviceAreaId)) {
+      throw new ValidationAppError("Venue-default rules cannot target a department or service area.");
+    }
+
+    const [department, serviceArea] = await Promise.all([
+      input.departmentId
+        ? this.db.department.findFirst({
+            where: { id: input.departmentId, customerId },
+            select: { id: true, venueId: true },
+          })
+        : Promise.resolve(null),
+      input.serviceAreaId
+        ? this.db.serviceArea.findFirst({
+            where: { id: input.serviceAreaId, customerId },
+            select: { id: true, venueId: true, departmentId: true },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    if (input.departmentId && !department) {
+      throw new NotFoundError("Department not found");
+    }
+
+    if (department && department.venueId !== input.venueId) {
+      throw new ValidationAppError("Allocation rule department must belong to the selected venue.");
+    }
+
+    if (input.serviceAreaId && !serviceArea) {
+      throw new NotFoundError("Service area not found");
+    }
+
+    if (serviceArea && serviceArea.venueId !== input.venueId) {
+      throw new ValidationAppError("Allocation rule service area must belong to the selected venue.");
+    }
+
+    if (department && serviceArea && serviceArea.departmentId !== department.id) {
+      throw new ValidationAppError("Allocation rule service area must belong to the selected department.");
+    }
+
+    if (lines.some((line) => line.recipientType === "SELECTED_STAFF") && input.selectionType !== "INDIVIDUAL") {
+      throw new ValidationAppError("SELECTED_STAFF lines are only valid on INDIVIDUAL allocation rules.");
     }
 
     const staffIds = lines.flatMap((line) =>
@@ -161,6 +263,20 @@ export class AllocationRulesService {
 
       if (count !== poolIds.length) {
         throw new NotFoundError("One or more pool recipients were not found");
+      }
+    }
+
+    for (const line of lines) {
+      if (line.recipientType === "STAFF" && !line.staffMemberId) {
+        throw new ValidationAppError("STAFF allocation lines must specify a staff member.");
+      }
+
+      if (line.recipientType === "POOL" && !line.poolId) {
+        throw new ValidationAppError("POOL allocation lines must specify a pool.");
+      }
+
+      if (line.recipientType === "SELECTED_STAFF" && (line.staffMemberId || line.poolId)) {
+        throw new ValidationAppError("SELECTED_STAFF lines cannot include fixed recipient IDs.");
       }
     }
   }

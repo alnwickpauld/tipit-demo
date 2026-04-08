@@ -1,13 +1,15 @@
-import "server-only";
+import type { TipSelectionType } from "@prisma/client";
 
+import { resolveAllocationRuleForTip } from "./allocation-routing";
 import { prisma } from "./prisma";
-import type { PublicTipDestination } from "./public-tip";
+import type { PublicTipPageData } from "./public-tip-models";
 
 type CreateTipTransactionInput = {
-  destination: PublicTipDestination;
+  destination: PublicTipPageData;
   grossAmount: number;
   tipitFeeAmount: number;
   netAmount: number;
+  guestSelectionType: TipSelectionType;
   occurredAt?: Date;
   stripeCheckoutId?: string | null;
   status?: "PENDING" | "SUCCEEDED";
@@ -88,25 +90,6 @@ async function resolvePayrollPeriod(customerId: string, occurredAt: Date) {
   });
 }
 
-async function resolveAllocationRule(venueId: string, occurredAt: Date) {
-  return prisma.allocationRule.findFirst({
-    where: {
-      venueId,
-      isActive: true,
-      OR: [{ effectiveFrom: null }, { effectiveFrom: { lte: occurredAt } }],
-      AND: [{ OR: [{ effectiveTo: null }, { effectiveTo: { gte: occurredAt } }] }],
-    },
-    include: {
-      lines: {
-        orderBy: {
-          sortOrder: "asc",
-        },
-      },
-    },
-    orderBy: [{ priority: "asc" }, { createdAt: "asc" }],
-  });
-}
-
 async function getActivePoolMemberIds(poolId: string, occurredAt: Date) {
   const activeMembers = await prisma.poolMember.findMany({
     where: {
@@ -146,6 +129,8 @@ export async function createTipTransaction(input: CreateTipTransactionInput) {
       destinationEmployeeId: input.destination.destinationEmployeeId,
       destinationPoolId: input.destination.destinationPoolId,
       destinationVenueId: input.destination.destinationVenueId ?? input.destination.venueId,
+      destinationServiceAreaId: input.destination.destinationServiceAreaId,
+      guestSelectionType: input.guestSelectionType,
       currency: input.destination.currency,
       grossAmount: toMoney(input.grossAmount),
       tipitFeeAmount: toMoney(input.tipitFeeAmount),
@@ -168,9 +153,10 @@ export async function finalizeTipTransaction(tipTransactionId: string, stripeChe
   const tip = await prisma.tipTransaction.findUnique({
     where: { id: tipTransactionId },
     include: {
-      destinationVenue: {
+      destinationServiceArea: {
         select: {
           id: true,
+          departmentId: true,
         },
       },
     },
@@ -197,12 +183,15 @@ export async function finalizeTipTransaction(tipTransactionId: string, stripeChe
       venueId: tip.venueId,
       payrollPeriodId: tip.payrollPeriodId ?? null,
       tipTransactionId: tip.id,
-      employeeId: tip.destinationEmployeeId,
+      employeeId: tip.destinationEmployeeId!,
       poolId: null,
       grossAmount: toMoney(Number(tip.grossAmount)),
       netAmount: toMoney(Number(tip.netAmount)),
     });
-  } else if (tip.destinationType === "POOL" && tip.destinationPoolId) {
+  } else if (
+    (tip.destinationType === "POOL" && tip.destinationPoolId) ||
+    (tip.destinationType === "SERVICE_AREA" && tip.destinationPoolId)
+  ) {
     const activeMemberIds = await getActivePoolMemberIds(tip.destinationPoolId, tip.occurredAt);
     const grossMemberSplits = splitEvenly(toCents(Number(tip.grossAmount)), activeMemberIds.length);
     const netMemberSplits = splitEvenly(toCents(Number(tip.netAmount)), activeMemberIds.length);
@@ -220,7 +209,13 @@ export async function finalizeTipTransaction(tipTransactionId: string, stripeChe
       });
     });
   } else {
-    const rule = await resolveAllocationRule(tip.venueId, tip.occurredAt);
+    const rule = await resolveAllocationRuleForTip({
+      venueId: tip.venueId,
+      departmentId: tip.destinationServiceArea?.departmentId,
+      serviceAreaId: tip.destinationServiceAreaId,
+      occurredAt: tip.occurredAt,
+      guestSelectionType: tip.guestSelectionType ?? "TEAM",
+    });
     if (!rule || rule.lines.length === 0) {
       throw new Error("No active allocation rule available for this tip");
     }
@@ -242,6 +237,24 @@ export async function finalizeTipTransaction(tipTransactionId: string, stripeChe
     for (const line of rule.lines) {
       const grossLineCents = lineGrossAllocations.get(line.id) ?? 0;
       const netLineCents = lineNetAllocations.get(line.id) ?? 0;
+
+      if (line.recipientType === "SELECTED_STAFF") {
+        if (!tip.destinationEmployeeId) {
+          throw new Error("Selected-staff allocation requires a selected employee");
+        }
+
+        resultRows.push({
+          customerId: tip.customerId,
+          venueId: tip.venueId,
+          payrollPeriodId: tip.payrollPeriodId ?? null,
+          tipTransactionId: tip.id,
+          employeeId: tip.destinationEmployeeId,
+          poolId: null,
+          grossAmount: toMoney(grossLineCents / 100),
+          netAmount: toMoney(netLineCents / 100),
+        });
+        continue;
+      }
 
       if (line.recipientType === "STAFF" && line.staffMemberId) {
         resultRows.push({

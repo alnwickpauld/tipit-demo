@@ -84,7 +84,7 @@ async function sendJson<T>(url: string, options: RequestInit): Promise<T> {
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8d8d8d]">{children}</span>;
+  return <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8c7a6c]">{children}</span>;
 }
 
 export function CustomersManager({ customers }: { customers: CustomerSummary[] }) {
@@ -149,8 +149,8 @@ export function CustomersManager({ customers }: { customers: CustomerSummary[] }
 
   if (!editingCustomer) {
     return (
-      <section className="rounded-[1.8rem] border border-[#151515] bg-[#090909] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.25)]">
-        <p className="text-sm text-[#9b9b9b]">No customers available.</p>
+      <section className="rounded-[1.8rem] border border-[#d9c8b8] bg-[rgba(255,251,246,0.84)] p-6 shadow-[0_24px_60px_rgba(96,71,49,0.10)]">
+        <p className="text-sm text-[#887568]">No customers available.</p>
       </section>
     );
   }
@@ -159,9 +159,9 @@ export function CustomersManager({ customers }: { customers: CustomerSummary[] }
 
   return (
     <section className="grid gap-6 xl:grid-cols-[0.88fr_1.12fr]">
-      <article className="rounded-[1.8rem] border border-[#151515] bg-[#090909] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.25)]">
-        <p className="text-xs uppercase tracking-[0.26em] text-[#8d8d8d]">Customers</p>
-        <h2 className="mt-2 text-2xl text-white">Hospitality groups</h2>
+      <article className="rounded-[1.8rem] border border-[#d9c8b8] bg-[rgba(255,251,246,0.84)] p-6 shadow-[0_24px_60px_rgba(96,71,49,0.10)]">
+        <p className="text-xs uppercase tracking-[0.26em] text-[#8c7a6c]">Customers</p>
+        <h2 className="mt-2 text-2xl text-[#45372f]">Hospitality groups</h2>
         <div className="mt-6 grid gap-4">
           {customers.map((customer) => (
             <button
@@ -170,13 +170,13 @@ export function CustomersManager({ customers }: { customers: CustomerSummary[] }
               onClick={() => setEditingId(customer.id)}
               className={`rounded-[1.4rem] border p-4 text-left transition ${
                 customer.id === editingCustomer.id
-                  ? "border-[#f5d31d] bg-[#111111] shadow-[0_10px_28px_rgba(245,211,29,0.12)]"
-                  : "border-[#3f3f3f] bg-[#0b0b0b]"
+                  ? "border-[#b59f8a] bg-[#f8f1ea] shadow-[0_10px_28px_rgba(123,95,72,0.10)]"
+                  : "border-[#e0d0c0] bg-[rgba(255,253,250,0.72)]"
               }`}
             >
-              <p className="text-lg font-semibold text-white">{customer.name}</p>
-              <p className="mt-2 text-sm text-[#b0b0b0]">{customer.billingEmail}</p>
-              <p className="mt-3 text-sm text-[#d0d0d0]">
+              <p className="text-lg font-semibold text-[#45372f]">{customer.name}</p>
+              <p className="mt-2 text-sm text-[#7b685b]">{customer.billingEmail}</p>
+              <p className="mt-3 text-sm text-[#5f5045]">
                 {customer.venueCount} venues / {customer.customerUserCount} users
               </p>
             </button>
@@ -184,20 +184,20 @@ export function CustomersManager({ customers }: { customers: CustomerSummary[] }
         </div>
       </article>
 
-      <article className="customer-admin-manager rounded-[1.8rem] border border-[#151515] bg-[#090909] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.25)]">
-        <p className="text-xs uppercase tracking-[0.26em] text-[#8d8d8d]">Customer details</p>
-        <h2 className="mt-2 text-2xl text-white">Edit customer</h2>
-        <p className="mt-2 text-sm text-[#9b9b9b]">
+      <article className="customer-admin-manager rounded-[1.8rem] border border-[#d9c8b8] bg-[rgba(255,251,246,0.84)] p-6 shadow-[0_24px_60px_rgba(96,71,49,0.10)]">
+        <p className="text-xs uppercase tracking-[0.26em] text-[#8c7a6c]">Customer details</p>
+        <h2 className="mt-2 text-2xl text-[#45372f]">Edit customer</h2>
+        <p className="mt-2 text-sm text-[#7f6c5f]">
           Update commercial settings, billing details, and payroll defaults for {editingCustomer.name}.
         </p>
 
         {message ? (
-          <p className="mt-4 rounded-2xl border border-[#2d4617] bg-[#0d160a] px-4 py-3 text-sm text-[#9ee16f]">
+          <p className="mt-4 rounded-2xl border border-[#cdd8c2] bg-[#f4f8ef] px-4 py-3 text-sm text-[#5f7c44]">
             {message}
           </p>
         ) : null}
         {error ? (
-          <p className="mt-4 rounded-2xl border border-[#4f1f1a] bg-[#170b0a] px-4 py-3 text-sm text-[#ff8f81]">
+          <p className="mt-4 rounded-2xl border border-[#dfc0b6] bg-[#fff2ee] px-4 py-3 text-sm text-[#9d5848]">
             {error}
           </p>
         ) : null}
@@ -266,7 +266,12 @@ export function CustomersManager({ customers }: { customers: CustomerSummary[] }
         </div>
 
         <div className="mt-6 flex justify-end">
-          <button type="button" onClick={() => handleSave(editingCustomer.id)} disabled={isPending} className="rounded-full border border-[#f5d31d] bg-[#f5d31d] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60">
+          <button
+            type="button"
+            onClick={() => handleSave(editingCustomer.id)}
+            disabled={isPending}
+            className="rounded-full border border-[#b49e89] bg-[#b49e89] px-5 py-3 text-sm font-semibold text-[#fffaf4] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+          >
             {isPending ? "Saving..." : "Save customer"}
           </button>
         </div>

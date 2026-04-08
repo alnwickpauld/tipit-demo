@@ -4,6 +4,7 @@ import { z } from "zod";
 import { amountToMinorUnits } from "../../../../lib/currency";
 import { logger, toLoggableError } from "../../../../lib/logger";
 import { getPublicTipDestinationBySlug } from "../../../../lib/public-tip";
+import { resolveTipSelectionFromPublicFlow } from "../../../../lib/public-tip-selection";
 import { prisma } from "../../../../lib/prisma";
 import { getStripe, isDevStripeBypassEnabled } from "../../../../lib/stripe";
 import { createTipTransaction, finalizeTipTransaction } from "../../../../lib/tip-settlement";
@@ -12,6 +13,8 @@ const checkoutPayloadSchema = z.object({
   slug: z.string().min(1),
   amount: z.coerce.number().min(1).max(500),
   paymentMethod: z.enum(["CARD", "APPLE_PAY", "PAYPAL"]).default("CARD"),
+  selectedRecipientMode: z.enum(["TEAM", "INDIVIDUAL"]).optional(),
+  selectedStaffMemberId: z.string().min(1).optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -23,8 +26,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "QR destination not found." }, { status: 404 });
     }
 
+    let resolvedSelection;
+    try {
+      resolvedSelection = resolveTipSelectionFromPublicFlow({
+        destination,
+        selectedRecipientMode: payload.selectedRecipientMode,
+        selectedStaffMemberId: payload.selectedStaffMemberId,
+      });
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        (error.message === "SELECTED_STAFF_MEMBER_REQUIRED" ||
+          error.message === "INVALID_RECIPIENT_SELECTION")
+      ) {
+        return NextResponse.json({ error: "Selected team member is not available." }, { status: 400 });
+      }
+
+      throw error;
+    }
+
+    const effectiveDestination = resolvedSelection.resolvedDestination;
+
     const customer = await prisma.customer.findUnique({
-      where: { id: destination.customerId },
+      where: { id: effectiveDestination.customerId },
       select: {
         tipitFeeBps: true,
       },
@@ -41,10 +65,11 @@ export async function POST(request: NextRequest) {
     const netAmount = Number((grossAmount - tipitFeeAmount).toFixed(2));
 
     const tipTransaction = await createTipTransaction({
-      destination,
+      destination: effectiveDestination,
       grossAmount,
       tipitFeeAmount,
       netAmount,
+      guestSelectionType: resolvedSelection.guestSelectionType,
       status: "PENDING",
     });
 
@@ -52,7 +77,7 @@ export async function POST(request: NextRequest) {
       await finalizeTipTransaction(tipTransaction.id);
       logger.info("Tip checkout completed in local demo mode", {
         tipTransactionId: tipTransaction.id,
-        destinationType: destination.destinationType,
+        destinationType: effectiveDestination.destinationType,
         paymentMethod: payload.paymentMethod,
       });
 
@@ -83,22 +108,24 @@ export async function POST(request: NextRequest) {
             currency: destination.currency.toLowerCase(),
             unit_amount: amountToMinorUnits(grossAmount),
             product_data: {
-              name: `Tip for ${destination.targetName}`,
-              description: `${destination.venueName} via Tipit`,
+              name: `Tip for ${effectiveDestination.targetName}`,
+              description: `${effectiveDestination.venueName} via Tipit`,
             },
           },
         },
       ],
       metadata: {
         slug: payload.slug,
-        customerId: destination.customerId,
-        venueId: destination.venueId,
-        destinationType: destination.destinationType,
+        customerId: effectiveDestination.customerId,
+        venueId: effectiveDestination.venueId,
+        destinationType: effectiveDestination.destinationType,
+        guestSelectionType: resolvedSelection.guestSelectionType,
         grossAmount: grossAmount.toFixed(2),
         tipitFeeAmount: tipitFeeAmount.toFixed(2),
         netAmount: netAmount.toFixed(2),
         tipTransactionId: tipTransaction.id,
         paymentMethod: payload.paymentMethod,
+        selectedStaffMemberId: effectiveDestination.destinationEmployeeId ?? "",
       },
     });
 
@@ -112,7 +139,7 @@ export async function POST(request: NextRequest) {
     logger.info("Stripe checkout session created", {
       tipTransactionId: tipTransaction.id,
       checkoutSessionId: session.id,
-      destinationType: destination.destinationType,
+      destinationType: effectiveDestination.destinationType,
       paymentMethod: payload.paymentMethod,
     });
 

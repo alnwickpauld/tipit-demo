@@ -8,6 +8,22 @@ type TipFormClientProps = {
   slug: string;
   currency: string;
   targetName: string;
+  destinationType: "EMPLOYEE" | "POOL" | "VENUE" | "SERVICE_AREA";
+  serviceAreaJourney: {
+    departmentName: string;
+    tippingMode: "TEAM_ONLY" | "INDIVIDUAL_ONLY" | "TEAM_OR_INDIVIDUAL" | "SHIFT_SELECTOR";
+    displayMode: "FIXED_SIGN" | "TABLE_CARD" | "BILL_FOLDER" | "COUNTER_SIGN" | "EVENT_SIGN" | "OTHER";
+    showTeamOption: boolean;
+    selectionUi: "LIST" | "DROPDOWN";
+    individualTippingUnavailable: boolean;
+    individualTippingMessage: string | null;
+    activeShiftStaff: Array<{
+      id: string;
+      displayName: string;
+      roleLabel?: string;
+      sortOrder: number;
+    }>;
+  } | null;
   textColor: string;
   buttonColor: string;
   buttonTextColor: string;

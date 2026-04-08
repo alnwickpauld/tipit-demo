@@ -8,9 +8,17 @@ type VenueOption = {
   name: string;
 };
 
+type DepartmentOption = {
+  id: string;
+  venueId: string;
+  name: string;
+  type: "MEETING_EVENTS" | "BREAKFAST" | "ROOM_SERVICE" | "BAR" | "RESTAURANT" | "OTHER";
+};
+
 type StaffSummary = {
   id: string;
   venueId: string;
+  departmentIds: string[];
   firstName: string;
   lastName: string;
   displayName: string | null;
@@ -20,10 +28,12 @@ type StaffSummary = {
   status: "ACTIVE" | "INACTIVE";
   publicTipUrl: string;
   venue: VenueOption;
+  departments: DepartmentOption[];
 };
 
 type StaffFormState = {
   venueId: string;
+  departmentIds: string[];
   firstName: string;
   lastName: string;
   displayName: string;
@@ -36,9 +46,10 @@ type ApiErrorResponse = {
   message?: string;
 };
 
-function emptyStaffForm(venueId = ""): StaffFormState {
+function emptyStaffForm(venueId = "", departmentIds: string[] = []): StaffFormState {
   return {
     venueId,
+    departmentIds,
     firstName: "",
     lastName: "",
     displayName: "",
@@ -46,6 +57,10 @@ function emptyStaffForm(venueId = ""): StaffFormState {
     staffCode: "",
     externalPayrollRef: "",
   };
+}
+
+function uniqueDepartmentIds(values: string[]) {
+  return [...new Set(values)];
 }
 
 async function sendJson<T>(url: string, options: RequestInit): Promise<T> {
@@ -72,17 +87,21 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 export function CustomerStaffManager({
   staffMembers,
   venues,
+  departments,
   canManage,
 }: {
   staffMembers: StaffSummary[];
   venues: VenueOption[];
+  departments: DepartmentOption[];
   canManage: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
   const [selectedVenueId, setSelectedVenueId] = useState("");
-  const [createForm, setCreateForm] = useState<StaffFormState>(emptyStaffForm(venues[0]?.id ?? ""));
+  const [createForm, setCreateForm] = useState<StaffFormState>(
+    emptyStaffForm(venues[0]?.id ?? "", departments[0] ? [departments[0].id] : []),
+  );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForms, setEditForms] = useState<Record<string, StaffFormState>>(
     Object.fromEntries(
@@ -90,6 +109,7 @@ export function CustomerStaffManager({
         member.id,
         {
           venueId: member.venueId,
+          departmentIds: member.departmentIds,
           firstName: member.firstName,
           lastName: member.lastName,
           displayName: member.displayName ?? "",
@@ -102,6 +122,10 @@ export function CustomerStaffManager({
   );
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const departmentsByVenue = venues.map((venue) => ({
+    venueId: venue.id,
+    departments: departments.filter((department) => department.venueId === venue.id),
+  }));
 
   const visibleStaff = staffMembers.filter((member) => {
     const matchesVenue = !selectedVenueId || member.venueId === selectedVenueId;
@@ -112,23 +136,92 @@ export function CustomerStaffManager({
     return matchesVenue && matchesSearch;
   });
 
-  function updateCreateField(field: keyof StaffFormState, value: string) {
-    setCreateForm((current) => ({ ...current, [field]: value }));
+  function updateCreateField(field: Exclude<keyof StaffFormState, "departmentIds">, value: string) {
+    setCreateForm((current) => {
+      const next = { ...current, [field]: value };
+      if (field === "venueId") {
+        const allowedDepartmentIds = new Set(
+          (departmentsByVenue.find((group) => group.venueId === value)?.departments ?? []).map(
+            (department) => department.id,
+          ),
+        );
+        next.departmentIds = current.departmentIds.filter((departmentId) =>
+          allowedDepartmentIds.has(departmentId),
+        );
+      }
+      return next;
+    });
   }
 
-  function updateEditField(id: string, field: keyof StaffFormState, value: string) {
-    setEditForms((current) => ({
-      ...current,
-      [id]: {
-        ...(current[id] ?? emptyStaffForm()),
+  function updateEditField(
+    id: string,
+    field: Exclude<keyof StaffFormState, "departmentIds">,
+    value: string,
+  ) {
+    setEditForms((current) => {
+      const existing = current[id] ?? emptyStaffForm();
+      const next = {
+        ...existing,
         [field]: value,
-      },
-    }));
+      };
+      if (field === "venueId") {
+        const allowedDepartmentIds = new Set(
+          (departmentsByVenue.find((group) => group.venueId === value)?.departments ?? []).map(
+            (department) => department.id,
+          ),
+        );
+        next.departmentIds = existing.departmentIds.filter((departmentId) =>
+          allowedDepartmentIds.has(departmentId),
+        );
+      }
+      return {
+        ...current,
+        [id]: next,
+      };
+    });
+  }
+
+  function toggleDepartment(
+    target: "create" | { id: string },
+    departmentId: string,
+    checked: boolean,
+  ) {
+    if (target === "create") {
+      setCreateForm((current) => ({
+        ...current,
+        departmentIds: uniqueDepartmentIds(
+          checked
+            ? [...current.departmentIds, departmentId]
+            : current.departmentIds.filter((id) => id !== departmentId),
+        ),
+      }));
+      return;
+    }
+
+    setEditForms((current) => {
+      const existing = current[target.id] ?? emptyStaffForm();
+      return {
+        ...current,
+        [target.id]: {
+          ...existing,
+          departmentIds: uniqueDepartmentIds(
+            checked
+              ? [...existing.departmentIds, departmentId]
+              : existing.departmentIds.filter((id) => id !== departmentId),
+          ),
+        },
+      };
+    });
+  }
+
+  function availableDepartments(venueId: string) {
+    return departmentsByVenue.find((group) => group.venueId === venueId)?.departments ?? [];
   }
 
   function normalizeForm(form: StaffFormState) {
     return {
       venueId: form.venueId,
+      departmentIds: form.departmentIds,
       firstName: form.firstName.trim(),
       lastName: form.lastName.trim(),
       displayName: form.displayName.trim() || undefined,
@@ -163,7 +256,8 @@ export function CustomerStaffManager({
           method: "POST",
           body: JSON.stringify(normalizeForm(createForm)),
         });
-        setCreateForm(emptyStaffForm(createForm.venueId || venues[0]?.id || ""));
+        const nextVenueId = createForm.venueId || venues[0]?.id || "";
+        setCreateForm(emptyStaffForm(nextVenueId, []));
         refreshWithNotice("Staff member created.");
       } catch (createError) {
         setError(createError instanceof Error ? createError.message : "Unable to create staff member");
@@ -222,11 +316,11 @@ export function CustomerStaffManager({
 
   return (
     <section className="customer-admin-manager space-y-6">
-      <div className="rounded-[1.8rem] border border-[#151515] bg-[#090909] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.25)]">
+      <div className="rounded-[1.8rem] border border-[#d9c8b8] bg-[rgba(255,251,246,0.84)] p-6 shadow-[0_24px_60px_rgba(96,71,49,0.10)]">
         <p className="text-xs uppercase tracking-[0.26em] text-[#70809b]">Staff</p>
         <div className="mt-2 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-2xl text-[#101828]">Team directory</h2>
+            <h2 className="text-2xl text-white">Team directory</h2>
             <p className="mt-1 text-sm text-[#66748b]">
               Manage customer staff records without leaving the admin workspace.
             </p>
@@ -264,7 +358,7 @@ export function CustomerStaffManager({
       </div>
 
       {canManage ? (
-        <div className="rounded-[1.8rem] border border-[#151515] bg-[#090909] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.25)]">
+      <div className="rounded-[1.8rem] border border-[#d9c8b8] bg-[rgba(255,251,246,0.84)] p-6 shadow-[0_24px_60px_rgba(96,71,49,0.10)]">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label className="block">
               <FieldLabel>Venue</FieldLabel>
@@ -330,12 +424,43 @@ export function CustomerStaffManager({
             </label>
           </div>
 
+          <div className="mt-4">
+            <FieldLabel>Departments</FieldLabel>
+            <div className="mt-3 flex flex-wrap gap-3">
+              {availableDepartments(createForm.venueId).map((department) => {
+                const checked = createForm.departmentIds.includes(department.id);
+
+                return (
+                  <label
+                    key={department.id}
+                    className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm ${
+                      checked
+                      ? "border-[#b49e89] bg-[#eadfd3] text-[#43362f]"
+                      : "border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] text-[#6f5f54]"
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(event) => toggleDepartment("create", department.id, event.target.checked)}
+                    className="h-4 w-4 accent-[#b49e89]"
+                    />
+                    <span>{department.name}</span>
+                  </label>
+                );
+              })}
+              {availableDepartments(createForm.venueId).length === 0 ? (
+                <p className="text-sm text-[#8d8d8d]">No departments available for this venue.</p>
+              ) : null}
+            </div>
+          </div>
+
           <div className="mt-4 flex justify-end">
             <button
               type="button"
               disabled={isPending}
               onClick={handleCreate}
-              className="rounded-full border border-[#f5d31d] bg-[#f5d31d] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full border border-[#b49e89] bg-[#b49e89] px-5 py-3 text-sm font-semibold text-[#fffaf4] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Add staff member
             </button>
@@ -346,12 +471,12 @@ export function CustomerStaffManager({
       <div className="grid gap-4">
         {visibleStaff.map((member) => {
           const isEditing = editingId === member.id;
-          const form = editForms[member.id] ?? emptyStaffForm(member.venueId);
+          const form = editForms[member.id] ?? emptyStaffForm(member.venueId, member.departmentIds);
 
           return (
             <article
               key={member.id}
-              className="rounded-[1.8rem] border border-[#3f3f3f] bg-[#090909] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.22)]"
+                className="rounded-[1.8rem] border border-[#d9c8b8] bg-[rgba(255,251,246,0.84)] p-6 shadow-[0_24px_60px_rgba(96,71,49,0.10)]"
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -369,8 +494,13 @@ export function CustomerStaffManager({
                       {member.status}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm text-[#d0d0d0]">{member.venue.name}</p>
-                  <div className="mt-3 rounded-2xl border border-[#4a4a4a] bg-[#0b0b0b] p-3">
+                  <p className="mt-2 text-sm text-[#d0d0d0]">
+                    {member.venue.name}
+                    {member.departments.length > 0
+                      ? ` / ${member.departments.map((department) => department.name).join(", ")}`
+                      : ""}
+                  </p>
+                  <div className="mt-3 rounded-2xl border border-[#dcc8b2] bg-[rgba(255,251,246,0.92)] p-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8d8d8d]">
                       Public tip URL
                     </p>
@@ -386,7 +516,7 @@ export function CustomerStaffManager({
                       <button
                         type="button"
                         onClick={() => handleCopy(member.publicTipUrl, "Staff")}
-                        className="rounded-full border border-[#4a4a4a] bg-[#0b0b0b] px-4 py-2 text-sm font-semibold text-white"
+                    className="rounded-full border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-2 text-sm font-semibold text-[#43362f]"
                       >
                         Copy URL
                       </button>
@@ -394,7 +524,7 @@ export function CustomerStaffManager({
                         href={member.publicTipUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-full border border-[#4a4a4a] bg-[#0b0b0b] px-4 py-2 text-sm font-semibold text-white"
+                    className="rounded-full border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-2 text-sm font-semibold text-[#43362f]"
                       >
                         Open tip page
                       </a>
@@ -411,7 +541,7 @@ export function CustomerStaffManager({
                     <button
                       type="button"
                       onClick={() => setEditingId(isEditing ? null : member.id)}
-                      className="rounded-full border border-[#4a4a4a] bg-[#0b0b0b] px-4 py-2 text-sm font-semibold text-white"
+                    className="rounded-full border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-2 text-sm font-semibold text-[#43362f]"
                     >
                       {isEditing ? "Close" : "Edit"}
                     </button>
@@ -419,7 +549,7 @@ export function CustomerStaffManager({
                       type="button"
                       disabled={isPending}
                       onClick={() => handleStatusToggle(member)}
-                      className="rounded-full border border-[#4a4a4a] bg-[#0b0b0b] px-4 py-2 text-sm font-semibold text-white"
+                    className="rounded-full border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-2 text-sm font-semibold text-[#43362f]"
                     >
                       {member.status === "ACTIVE" ? "Deactivate" : "Activate"}
                     </button>
@@ -502,12 +632,45 @@ export function CustomerStaffManager({
                     />
                   </label>
 
+                  <div className="md:col-span-2 xl:col-span-4">
+                    <FieldLabel>Departments</FieldLabel>
+                    <div className="mt-3 flex flex-wrap gap-3">
+                      {availableDepartments(form.venueId).map((department) => {
+                        const checked = form.departmentIds.includes(department.id);
+
+                        return (
+                          <label
+                            key={department.id}
+                            className={`flex items-center gap-2 rounded-full border px-4 py-2 text-sm ${
+                              checked
+                      ? "border-[#b49e89] bg-[#eadfd3] text-[#43362f]"
+                      : "border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] text-[#6f5f54]"
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(event) =>
+                                toggleDepartment({ id: member.id }, department.id, event.target.checked)
+                              }
+                    className="h-4 w-4 accent-[#b49e89]"
+                            />
+                            <span>{department.name}</span>
+                          </label>
+                        );
+                      })}
+                      {availableDepartments(form.venueId).length === 0 ? (
+                        <p className="text-sm text-[#8d8d8d]">No departments available for this venue.</p>
+                      ) : null}
+                    </div>
+                  </div>
+
                   <div className="md:col-span-2 xl:col-span-4 flex justify-end">
                     <button
                       type="button"
                       disabled={isPending}
                       onClick={() => handleUpdate(member.id)}
-                      className="rounded-full border border-[#f5d31d] bg-[#f5d31d] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-full border border-[#b49e89] bg-[#b49e89] px-5 py-3 text-sm font-semibold text-[#fffaf4] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Save changes
                     </button>
@@ -519,7 +682,7 @@ export function CustomerStaffManager({
         })}
 
         {visibleStaff.length === 0 ? (
-          <div className="rounded-[1.8rem] border border-dashed border-[#2a2a2a] bg-[#090909] p-8 text-center text-sm text-[#9b9b9b]">
+        <div className="rounded-[1.8rem] border border-dashed border-[#d9c8b8] bg-[rgba(255,251,246,0.72)] p-8 text-center text-sm text-[#887568]">
             No staff members match this filter.
           </div>
         ) : null}

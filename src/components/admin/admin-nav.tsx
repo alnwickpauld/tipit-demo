@@ -24,13 +24,13 @@ export function AdminNav({ navItems }: { navItems: NavItem[] }) {
           <Link
             key={item.href}
             href={item.href}
-            className={`rounded-xl px-4 py-3 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#f5d31d]/60 ${
+            className={`rounded-xl px-4 py-3 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-[#b69b81]/60 ${
               isActive
-                ? "bg-[#f5d31d] shadow-[0_8px_22px_rgba(245,211,29,0.24)]"
-                : "border border-transparent hover:border-[#1a1a1a] hover:bg-[#0f0f0f]"
+                ? "bg-[#f7f0e8] shadow-[0_10px_24px_rgba(54,34,18,0.14)]"
+                : "border border-transparent hover:border-[rgba(255,255,255,0.18)] hover:bg-[rgba(255,255,255,0.08)]"
             }`}
             style={{
-              color: isActive ? "#111111" : "rgba(255, 255, 255, 0.92)",
+              color: isActive ? "#5b4a3f" : "rgba(255, 247, 239, 0.96)",
             }}
           >
             {item.label}

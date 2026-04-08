@@ -68,7 +68,7 @@ export function TipFeedbackCardLarge({
             <span
               aria-hidden
               className={`text-[4.5rem] leading-none transition ${
-                star <= rating ? "text-[#c7b7a5]" : "text-[#d8d8d8]"
+                star <= rating ? "text-[#a58a72]" : "text-[#d9cec2]"
               }`}
             >
               {"\u2605"}
@@ -76,11 +76,11 @@ export function TipFeedbackCardLarge({
           </button>
         ))}
       </div>
-      <div className="mx-auto mt-5 h-px w-full max-w-[16rem] bg-[#bcbcbc]" />
+      <div className="mx-auto mt-5 h-px w-full max-w-[16rem] bg-[#bba894]" />
       {submitted ? (
-        <p className="mt-4 text-sm text-[#4f4f4f]">Thanks for leaving a rating.</p>
+        <p className="mt-4 text-sm text-[#6d5a4d]">Thanks for leaving a rating.</p>
       ) : null}
-      {error ? <p className="mt-4 text-sm text-[#9f2d20]">{error}</p> : null}
+      {error ? <p className="mt-4 text-sm text-[#9f5846]">{error}</p> : null}
     </section>
   );
 }

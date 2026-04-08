@@ -74,9 +74,9 @@ function emptyVenueForm(): VenueFormState {
     city: "",
     country: "GB",
     address: "",
-    brandBackgroundColor: "#ECECEC",
-    brandTextColor: "#111111",
-    brandButtonColor: "#000000",
+    brandBackgroundColor: "#A08D7A",
+    brandTextColor: "#FFF8F1",
+    brandButtonColor: "#B39D88",
     brandButtonTextColor: "#FFFFFF",
     brandLogoImageUrl: "",
   };
@@ -293,7 +293,7 @@ export function CustomerVenuesManager({
 
   return (
     <section className="customer-admin-manager space-y-6">
-      <div className="rounded-[1.8rem] border border-[#151515] bg-[#090909] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.25)]">
+      <div className="rounded-[1.8rem] border border-[#d9c8b8] bg-[rgba(255,251,246,0.84)] p-6 shadow-[0_24px_60px_rgba(96,71,49,0.10)]">
         <p className="text-xs uppercase tracking-[0.26em] text-[#70809b]">Venues</p>
         <div className="mt-2 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
@@ -308,7 +308,7 @@ export function CustomerVenuesManager({
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder="Search by venue name"
-              className="mt-2 w-full min-w-[240px] rounded-2xl border border-[#3f3f3f] bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none ring-0 placeholder:text-[#666]"
+                className="mt-2 w-full min-w-[240px] rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none ring-0 placeholder:text-[#9a8574]"
             />
           </label>
         </div>
@@ -326,7 +326,7 @@ export function CustomerVenuesManager({
       </div>
 
       {canManage ? (
-        <div className="rounded-[1.8rem] border border-[#151515] bg-[#090909] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.25)]">
+      <div className="rounded-[1.8rem] border border-[#d9c8b8] bg-[rgba(255,251,246,0.84)] p-6 shadow-[0_24px_60px_rgba(96,71,49,0.10)]">
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label className="block">
               <FieldLabel>Name</FieldLabel>
@@ -459,7 +459,7 @@ export function CustomerVenuesManager({
               type="button"
               disabled={isPending}
               onClick={handleCreate}
-              className="rounded-full border border-[#f5d31d] bg-[#f5d31d] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+            className="rounded-full border border-[#b49e89] bg-[#b49e89] px-5 py-3 text-sm font-semibold text-[#fffaf4] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Add venue
             </button>
@@ -475,7 +475,7 @@ export function CustomerVenuesManager({
           return (
             <article
               key={venue.id}
-              className="rounded-[1.8rem] border border-[#2f2f2f] bg-[#090909] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.22)]"
+                className="rounded-[1.8rem] border border-[#d9c8b8] bg-[rgba(255,251,246,0.84)] p-6 shadow-[0_24px_60px_rgba(96,71,49,0.10)]"
             >
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
@@ -531,7 +531,7 @@ export function CustomerVenuesManager({
                     <button
                       type="button"
                       onClick={() => setEditingId(isEditing ? null : venue.id)}
-                      className="rounded-full border border-[#4a4a4a] bg-[#0b0b0b] px-4 py-2 text-sm font-semibold text-white"
+                    className="rounded-full border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-2 text-sm font-semibold text-[#43362f]"
                     >
                       {isEditing ? "Close" : "Edit"}
                     </button>
@@ -539,7 +539,7 @@ export function CustomerVenuesManager({
                       type="button"
                       disabled={isPending}
                       onClick={() => handleStatusToggle(venue)}
-                      className="rounded-full border border-[#4a4a4a] bg-[#0b0b0b] px-4 py-2 text-sm font-semibold text-white"
+                    className="rounded-full border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-2 text-sm font-semibold text-[#43362f]"
                     >
                       {venue.status === "ACTIVE" ? "Deactivate" : "Activate"}
                     </button>
@@ -683,7 +683,7 @@ export function CustomerVenuesManager({
                     <button
                       type="button"
                       onClick={() => updateEditField(venue.id, "brandLogoImageUrl", "")}
-                      className="mt-3 rounded-full border border-[#4a4a4a] bg-[#0b0b0b] px-4 py-2 text-sm font-semibold text-white"
+                    className="mt-3 rounded-full border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-2 text-sm font-semibold text-[#43362f]"
                     >
                       Remove logo
                     </button>
@@ -694,7 +694,7 @@ export function CustomerVenuesManager({
                       type="button"
                       disabled={isPending}
                       onClick={() => handleUpdate(venue.id)}
-                      className="rounded-full border border-[#f5d31d] bg-[#f5d31d] px-5 py-3 text-sm font-semibold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="rounded-full border border-[#b49e89] bg-[#b49e89] px-5 py-3 text-sm font-semibold text-[#fffaf4] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
                     >
                       Save changes
                     </button>
@@ -706,7 +706,7 @@ export function CustomerVenuesManager({
         })}
 
         {visibleVenues.length === 0 ? (
-          <div className="rounded-[1.8rem] border border-dashed border-[#2a2a2a] bg-[#090909] p-8 text-center text-sm text-[#9b9b9b]">
+        <div className="rounded-[1.8rem] border border-dashed border-[#d9c8b8] bg-[rgba(255,251,246,0.72)] p-8 text-center text-sm text-[#887568]">
             No venues match this search.
           </div>
         ) : null}

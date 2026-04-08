@@ -25,6 +25,14 @@ export function getVenueTipSlug(venueId: string) {
   return `venue-${venueId}`;
 }
 
+export function getServiceAreaTipSlug(serviceAreaId: string) {
+  return `service-area-${serviceAreaId}`;
+}
+
+export function getQrAssetTipSlug(qrAssetSlug: string) {
+  return qrAssetSlug;
+}
+
 export function getPublicTipUrl(slug: string) {
   return `${getPublicAppBaseUrl()}/tip/${slug}`;
 }
@@ -39,4 +47,12 @@ export function getPoolTipUrl(poolId: string) {
 
 export function getVenueTipUrl(venueId: string) {
   return getPublicTipUrl(getVenueTipSlug(venueId));
+}
+
+export function getServiceAreaTipUrl(serviceAreaId: string) {
+  return getPublicTipUrl(getServiceAreaTipSlug(serviceAreaId));
+}
+
+export function getQrAssetTipUrl(qrAssetSlug: string) {
+  return getPublicTipUrl(getQrAssetTipSlug(qrAssetSlug));
 }

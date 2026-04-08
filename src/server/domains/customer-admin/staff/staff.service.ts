@@ -8,18 +8,30 @@ import type { CreateStaffInput, UpdateStaffInput } from "./staff.schemas";
 type ListStaffInput = {
   customerId?: string;
   venueId?: string;
+  departmentId?: string;
 };
 
 function buildWhere(input: ListStaffInput): Prisma.StaffMemberWhereInput {
   return {
     customerId: input.customerId,
     venueId: input.venueId,
+    departmentAssignments: input.departmentId
+      ? {
+          some: {
+            departmentId: input.departmentId,
+            isActive: true,
+          },
+        }
+      : undefined,
   };
 }
 
 export class StaffService {
   constructor(
-    private readonly db: Pick<PrismaClient, "staffMember" | "venue"> = prisma,
+    private readonly db: Pick<
+      PrismaClient,
+      "staffMember" | "venue" | "department" | "departmentStaffAssignment"
+    > = prisma,
   ) {}
 
   async list(input: ListStaffInput) {
@@ -28,6 +40,13 @@ export class StaffService {
       orderBy: [{ venue: { name: "asc" } }, { lastName: "asc" }, { firstName: "asc" }],
       include: {
         venue: { select: { id: true, name: true } },
+        departmentAssignments: {
+          where: { isActive: true },
+          orderBy: [{ isPrimary: "desc" }, { department: { name: "asc" } }],
+          include: {
+            department: { select: { id: true, name: true, type: true } },
+          },
+        },
       },
     });
   }
@@ -40,6 +59,13 @@ export class StaffService {
       },
       include: {
         venue: { select: { id: true, name: true } },
+        departmentAssignments: {
+          where: { isActive: true },
+          orderBy: [{ isPrimary: "desc" }, { department: { name: "asc" } }],
+          include: {
+            department: { select: { id: true, name: true, type: true } },
+          },
+        },
       },
     });
 
@@ -51,14 +77,8 @@ export class StaffService {
   }
 
   async create(customerId: string, input: CreateStaffInput) {
-    const venue = await this.db.venue.findFirst({
-      where: { id: input.venueId, customerId },
-      select: { id: true },
-    });
-
-    if (!venue) {
-      throw new NotFoundError("Venue not found");
-    }
+    const departmentIds = input.departmentIds ?? [];
+    await this.validateVenueAndDepartments(customerId, input.venueId, departmentIds);
 
     return this.db.staffMember.create({
       data: {
@@ -70,6 +90,22 @@ export class StaffService {
         displayName: input.displayName,
         email: input.email,
         staffCode: input.staffCode,
+        departmentAssignments: {
+          create: departmentIds.map((departmentId, index) => ({
+            customerId,
+            venueId: input.venueId,
+            departmentId,
+            isPrimary: index === 0,
+          })),
+        },
+      },
+      include: {
+        departmentAssignments: {
+          where: { isActive: true },
+          include: {
+            department: { select: { id: true, name: true, type: true } },
+          },
+        },
       },
     });
   }
@@ -86,15 +122,19 @@ export class StaffService {
       throw new NotFoundError("Staff member not found");
     }
 
-    if (input.venueId) {
-      const venue = await this.db.venue.findFirst({
-        where: { id: input.venueId, customerId },
-        select: { id: true },
-      });
+    const currentDepartmentAssignments = await this.db.departmentStaffAssignment.findMany({
+      where: { staffMemberId, isActive: true },
+      select: { departmentId: true },
+    });
 
-      if (!venue) {
-        throw new NotFoundError("Venue not found");
-      }
+    const nextVenueId = input.venueId ?? staffMember.venueId;
+    const nextDepartmentIds =
+      input.departmentIds === undefined
+        ? currentDepartmentAssignments.map((assignment) => assignment.departmentId)
+        : input.departmentIds;
+
+    if (input.venueId || input.departmentIds !== undefined) {
+      await this.validateVenueAndDepartments(customerId, nextVenueId, nextDepartmentIds);
     }
 
     return this.db.staffMember.update({
@@ -108,6 +148,27 @@ export class StaffService {
         email: input.email,
         staffCode: input.staffCode,
         status: input.status,
+        ...(input.departmentIds !== undefined || input.venueId
+          ? {
+              departmentAssignments: {
+                deleteMany: {},
+                create: nextDepartmentIds.map((departmentId, index) => ({
+                  customerId,
+                  venueId: nextVenueId,
+                  departmentId,
+                  isPrimary: index === 0,
+                })),
+              },
+            }
+          : {}),
+      },
+      include: {
+        departmentAssignments: {
+          where: { isActive: true },
+          include: {
+            department: { select: { id: true, name: true, type: true } },
+          },
+        },
       },
     });
   }
@@ -159,5 +220,42 @@ export class StaffService {
     });
 
     return { id: staffMemberId, deleted: true as const };
+  }
+
+  private async validateVenueAndDepartments(
+    customerId: string,
+    venueId: string,
+    departmentIds: string[],
+  ) {
+    const venue = await this.db.venue.findFirst({
+      where: { id: venueId, customerId },
+      select: { id: true },
+    });
+
+    if (!venue) {
+      throw new NotFoundError("Venue not found");
+    }
+
+    if (departmentIds.length === 0) {
+      return;
+    }
+
+    const uniqueDepartmentIds = [...new Set(departmentIds)];
+    if (uniqueDepartmentIds.length !== departmentIds.length) {
+      throw new ValidationAppError("Staff can only be assigned to each department once.");
+    }
+
+    const departments = await this.db.department.findMany({
+      where: { id: { in: departmentIds }, customerId },
+      select: { id: true, venueId: true },
+    });
+
+    if (departments.length !== departmentIds.length) {
+      throw new NotFoundError("Department not found");
+    }
+
+    if (departments.some((department) => department.venueId !== venueId)) {
+      throw new ValidationAppError("Staff can only be assigned to departments within the same venue.");
+    }
   }
 }

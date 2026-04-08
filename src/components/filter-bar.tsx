@@ -48,11 +48,11 @@ export function FilterBar({
   extraAction,
 }: FilterBarProps) {
   return (
-    <section className="rounded-[1.75rem] border border-[#151515] bg-[#090909] p-4 shadow-[0_24px_60px_rgba(0,0,0,0.25)]">
+    <section className="rounded-[1.75rem] border border-[#d7c5b2] bg-[rgba(255,250,245,0.82)] p-4 shadow-[0_24px_60px_rgba(97,73,54,0.10)]">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div className="grid flex-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <div>
-            <p className="text-xs uppercase tracking-[0.22em] text-[#8d8d8d]">Venue</p>
+            <p className="text-xs uppercase tracking-[0.22em] text-[#8c7a6c]">Venue</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {[{ value: "", label: "All venues" }, ...venueOptions].map((option) => {
                 const isActive = (selectedVenueId ?? "") === option.value;
@@ -68,8 +68,8 @@ export function FilterBar({
                     className={[
                       "rounded-full px-4 py-2 text-sm transition",
                       isActive
-                        ? "border border-[#f5d31d] bg-[#f5d31d] font-semibold text-[#050505]"
-                        : "border border-[#2a2a2a] bg-[#0b0b0b] text-white hover:border-[#5f4d10]",
+                        ? "border border-[#b49e89] bg-[#b49e89] font-semibold text-[#fffaf4]"
+                        : "border border-[#d7c5b2] bg-[rgba(255,251,246,0.96)] text-[#5c4d42] hover:border-[#b49e89]",
                     ].join(" ")}
                   >
                     {option.label}
@@ -81,7 +81,7 @@ export function FilterBar({
 
           {payrollPeriodOptions ? (
             <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-[#8d8d8d]">
+              <p className="text-xs uppercase tracking-[0.22em] text-[#8c7a6c]">
                 Payroll period
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -99,8 +99,8 @@ export function FilterBar({
                       className={[
                         "rounded-full px-4 py-2 text-sm transition",
                         isActive
-                          ? "border border-[#f5d31d] bg-[#f5d31d] font-semibold text-[#050505]"
-                          : "border border-[#2a2a2a] bg-[#0b0b0b] text-white hover:border-[#5f4d10]",
+                          ? "border border-[#b49e89] bg-[#b49e89] font-semibold text-[#fffaf4]"
+                          : "border border-[#d7c5b2] bg-[rgba(255,251,246,0.96)] text-[#5c4d42] hover:border-[#b49e89]",
                       ].join(" ")}
                     >
                       {option.label}
@@ -113,7 +113,7 @@ export function FilterBar({
 
           {granularityOptions ? (
             <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-[#8d8d8d]">
+              <p className="text-xs uppercase tracking-[0.22em] text-[#8c7a6c]">
                 Ranking window
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
@@ -130,8 +130,8 @@ export function FilterBar({
                       className={[
                         "rounded-full px-4 py-2 text-sm transition",
                         isActive
-                          ? "border border-[#f5d31d] bg-[#f5d31d] font-semibold text-[#050505]"
-                          : "border border-[#2a2a2a] bg-[#0b0b0b] text-white hover:border-[#5f4d10]",
+                          ? "border border-[#b49e89] bg-[#b49e89] font-semibold text-[#fffaf4]"
+                          : "border border-[#d7c5b2] bg-[rgba(255,251,246,0.96)] text-[#5c4d42] hover:border-[#b49e89]",
                       ].join(" ")}
                     >
                       {option.label}
@@ -144,7 +144,7 @@ export function FilterBar({
 
           {rankingModeOptions ? (
             <div>
-              <p className="text-xs uppercase tracking-[0.22em] text-[#8d8d8d]">Rank by</p>
+              <p className="text-xs uppercase tracking-[0.22em] text-[#8c7a6c]">Rank by</p>
               <div className="mt-2 flex flex-wrap gap-2">
                 {rankingModeOptions.map((option) => {
                   const isActive = selectedRankingMode === option.value;
@@ -159,8 +159,8 @@ export function FilterBar({
                       className={[
                         "rounded-full px-4 py-2 text-sm transition",
                         isActive
-                          ? "border border-[#f5d31d] bg-[#f5d31d] font-semibold text-[#050505]"
-                          : "border border-[#2a2a2a] bg-[#0b0b0b] text-white hover:border-[#5f4d10]",
+                          ? "border border-[#b49e89] bg-[#b49e89] font-semibold text-[#fffaf4]"
+                          : "border border-[#d7c5b2] bg-[rgba(255,251,246,0.96)] text-[#5c4d42] hover:border-[#b49e89]",
                       ].join(" ")}
                     >
                       {option.label}

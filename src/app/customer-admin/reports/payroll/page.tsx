@@ -54,7 +54,7 @@ export default async function CustomerPayrollReportPage({
         extraAction={
           <Link
             href={`/api/reports/payroll/export${exportParams.toString() ? `?${exportParams.toString()}` : ""}` as Route}
-            className="inline-flex rounded-full border border-[#f5d31d] bg-[#f5d31d] px-5 py-3 text-sm font-semibold text-[#050505] no-underline transition hover:opacity-90"
+            className="inline-flex rounded-full border border-[#b49e89] bg-[#b49e89] px-5 py-3 text-sm font-semibold text-[#fffaf4] no-underline transition hover:opacity-90"
           >
             Export CSV
           </Link>

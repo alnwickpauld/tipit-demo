@@ -50,33 +50,33 @@ export default async function CustomerLeaderboardPage({
       />
 
       {report.latestBucket ? (
-        <section className="rounded-[1.75rem] border border-[#151515] bg-[#090909] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.25)]">
-          <p className="text-xs uppercase tracking-[0.22em] text-[#8d8d8d]">Current leaders</p>
-          <h2 className="mt-2 text-2xl text-white">{report.latestBucket.label}</h2>
+        <section className="rounded-[1.75rem] border border-[#d7c5b2] bg-[rgba(255,250,245,0.82)] p-5 shadow-[0_24px_60px_rgba(97,73,54,0.10)]">
+          <p className="text-xs uppercase tracking-[0.22em] text-[#8c7a6c]">Current leaders</p>
+          <h2 className="mt-2 text-2xl text-[#43362f]">{report.latestBucket.label}</h2>
           <div className="mt-4 flex flex-wrap gap-3">
-            <div className="rounded-2xl border border-[#171717] bg-[#0b0b0b] px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-[#8d8d8d]">
+            <div className="rounded-2xl border border-[#e0d2c2] bg-[rgba(255,251,246,0.96)] px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.18em] text-[#8c7a6c]">
                 Period average rating
               </p>
-              <p className="mt-2 text-2xl font-semibold text-white">
+              <p className="mt-2 text-2xl font-semibold text-[#43362f]">
                 {report.latestBucket.averageRating > 0
                   ? `${report.latestBucket.averageRating.toFixed(1)} / 5`
                   : "No ratings"}
               </p>
             </div>
-            <div className="rounded-2xl border border-[#171717] bg-[#0b0b0b] px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.18em] text-[#8d8d8d]">Ranking mode</p>
-              <p className="mt-2 text-2xl font-semibold text-white">
+            <div className="rounded-2xl border border-[#e0d2c2] bg-[rgba(255,251,246,0.96)] px-4 py-3">
+              <p className="text-xs uppercase tracking-[0.18em] text-[#8c7a6c]">Ranking mode</p>
+              <p className="mt-2 text-2xl font-semibold text-[#43362f]">
                 {report.selectedRankingMode === "rating" ? "Best rating" : "Tips earned"}
               </p>
             </div>
           </div>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             {report.latestBucket.rows.slice(0, 3).map((row) => (
-              <div key={row.employeeId} className="rounded-2xl border border-[#171717] bg-[#0b0b0b] p-4">
-                <p className="text-sm text-[#8d8d8d]">#{row.rank}</p>
-                <p className="mt-2 text-xl font-semibold text-white">{row.employeeName}</p>
-                <div className="mt-3 space-y-1 text-base text-[#d0d0d0]">
+              <div key={row.employeeId} className="rounded-2xl border border-[#e0d2c2] bg-[rgba(255,251,246,0.96)] p-4">
+                <p className="text-sm text-[#8c7a6c]">#{row.rank}</p>
+                <p className="mt-2 text-xl font-semibold text-[#43362f]">{row.employeeName}</p>
+                <div className="mt-3 space-y-1 text-base text-[#5f5045]">
                   <p>{formatCurrency(row.total, report.context.currency)}</p>
                   <p>
                     {row.ratingCount > 0
@@ -94,22 +94,22 @@ export default async function CustomerLeaderboardPage({
         {report.buckets.map((bucket) => (
           <section
             key={bucket.key}
-            className="rounded-[1.75rem] border border-[#151515] bg-[#090909] p-5 shadow-[0_24px_60px_rgba(0,0,0,0.25)]"
+            className="rounded-[1.75rem] border border-[#d7c5b2] bg-[rgba(255,250,245,0.82)] p-5 shadow-[0_24px_60px_rgba(97,73,54,0.10)]"
           >
             <div className="flex items-end justify-between gap-4">
               <div>
-                <p className="text-xs uppercase tracking-[0.22em] text-[#8d8d8d]">
+                <p className="text-xs uppercase tracking-[0.22em] text-[#8c7a6c]">
                   {report.selectedGranularity}
                 </p>
-                <h2 className="mt-2 text-2xl text-white">{bucket.label}</h2>
+                <h2 className="mt-2 text-2xl text-[#43362f]">{bucket.label}</h2>
               </div>
-              <p className="text-sm text-[#9b9b9b]">{bucket.rows.length} ranked employees</p>
+              <p className="text-sm text-[#7f6c5f]">{bucket.rows.length} ranked employees</p>
             </div>
 
             <div className="mt-5 overflow-x-auto">
               <table className="min-w-full border-separate border-spacing-y-3">
                 <thead>
-                  <tr className="text-left text-xs uppercase tracking-[0.18em] text-[#8d8d8d]">
+                  <tr className="text-left text-xs uppercase tracking-[0.18em] text-[#8c7a6c]">
                     <th className="pb-1 pr-4">Rank</th>
                     <th className="pb-1 pr-4">Employee</th>
                     <th className="pb-1 pr-4">Average rating</th>
@@ -118,7 +118,7 @@ export default async function CustomerLeaderboardPage({
                 </thead>
                 <tbody>
                   {bucket.rows.map((row) => (
-                    <tr key={row.employeeId} className="bg-[#0b0b0b] text-sm text-white">
+                    <tr key={row.employeeId} className="bg-[rgba(255,251,246,0.96)] text-sm text-[#43362f]">
                       <td className="rounded-l-2xl px-4 py-4 font-semibold">{row.rank}</td>
                       <td className="px-4 py-4 font-medium">{row.employeeName}</td>
                       <td className="px-4 py-4">

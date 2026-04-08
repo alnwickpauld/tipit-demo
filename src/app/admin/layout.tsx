@@ -25,7 +25,7 @@ export default async function TipitAdminLayout({
       user={user}
       brand={
         <div className="flex h-[36px] items-center">
-          <span className="text-[2rem] font-medium tracking-[-0.03em] text-white">Tipit</span>
+          <span className="text-[2rem] font-medium tracking-[-0.03em] text-[#fff8f1]">Tipit</span>
         </div>
       }
     >
