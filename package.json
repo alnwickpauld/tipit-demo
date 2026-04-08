@@ -32,6 +32,7 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "dotenv": "^16.6.1",
     "@tailwindcss/postcss": "^4.1.1",
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.10",
@@ -40,8 +41,5 @@
     "tailwindcss": "^4.1.1",
     "tsx": "^4.20.0",
     "typescript": "^5.8.0"
-  },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
   }
 }
