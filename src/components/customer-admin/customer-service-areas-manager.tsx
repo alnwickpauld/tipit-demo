@@ -361,39 +361,39 @@ export function CustomerServiceAreasManager({
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             <label className="block">
               <FieldLabel>Venue</FieldLabel>
-              <select value={createForm.venueId} onChange={(event) => updateCreateField("venueId", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#d8deea] bg-[#fbfcfe] px-4 py-3 text-sm text-[#172033] outline-none">
+              <select value={createForm.venueId} onChange={(event) => updateCreateField("venueId", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none">
                 {venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name}</option>)}
               </select>
             </label>
             <label className="block">
               <FieldLabel>Department</FieldLabel>
-              <select value={createForm.departmentId} onChange={(event) => updateCreateField("departmentId", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#d8deea] bg-[#fbfcfe] px-4 py-3 text-sm text-[#172033] outline-none">
+              <select value={createForm.departmentId} onChange={(event) => updateCreateField("departmentId", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none">
                 {availableDepartments(createForm.venueId).map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
               </select>
             </label>
             <label className="block">
               <FieldLabel>Name</FieldLabel>
-              <input value={createForm.name} onChange={(event) => updateCreateField("name", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#d8deea] bg-[#fbfcfe] px-4 py-3 text-sm text-[#172033] outline-none" />
+              <input value={createForm.name} onChange={(event) => updateCreateField("name", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none" />
             </label>
             <label className="block">
               <FieldLabel>Slug</FieldLabel>
-              <input value={createForm.slug} onChange={(event) => updateCreateField("slug", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#d8deea] bg-[#fbfcfe] px-4 py-3 text-sm text-[#172033] outline-none" />
+              <input value={createForm.slug} onChange={(event) => updateCreateField("slug", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none" />
             </label>
             <label className="block">
               <FieldLabel>Tipping mode</FieldLabel>
-              <select value={createForm.tippingMode} onChange={(event) => updateCreateField("tippingMode", event.target.value as ServiceAreaSummary["tippingMode"])} className="mt-2 w-full rounded-2xl border border-[#d8deea] bg-[#fbfcfe] px-4 py-3 text-sm text-[#172033] outline-none">
+              <select value={createForm.tippingMode} onChange={(event) => updateCreateField("tippingMode", event.target.value as ServiceAreaSummary["tippingMode"])} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none">
                 {tippingModes.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
               </select>
             </label>
             <label className="block">
               <FieldLabel>Display mode</FieldLabel>
-              <select value={createForm.displayMode} onChange={(event) => updateCreateField("displayMode", event.target.value as ServiceAreaSummary["displayMode"])} className="mt-2 w-full rounded-2xl border border-[#d8deea] bg-[#fbfcfe] px-4 py-3 text-sm text-[#172033] outline-none">
+              <select value={createForm.displayMode} onChange={(event) => updateCreateField("displayMode", event.target.value as ServiceAreaSummary["displayMode"])} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none">
                 {displayModes.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
               </select>
             </label>
             <label className="block md:col-span-2 xl:col-span-4">
               <FieldLabel>Description</FieldLabel>
-              <textarea rows={3} value={createForm.description} onChange={(event) => updateCreateField("description", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#d8deea] bg-[#fbfcfe] px-4 py-3 text-sm text-[#172033] outline-none" />
+              <textarea rows={3} value={createForm.description} onChange={(event) => updateCreateField("description", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none" />
             </label>
           </div>
           <button type="button" onClick={handleCreate} disabled={isPending} className="mt-5 rounded-full border border-[#b49e89] bg-[#b49e89] px-6 py-3 text-sm font-semibold text-[#fffaf4] transition disabled:cursor-not-allowed disabled:opacity-60">
@@ -439,53 +439,55 @@ export function CustomerServiceAreasManager({
                 <div className="mt-5 grid gap-4 md:grid-cols-2">
                   <label className="block">
                     <FieldLabel>Venue</FieldLabel>
-                    <select value={form.venueId} onChange={(event) => updateEditField(serviceArea.id, "venueId", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#d8deea] bg-[#fbfcfe] px-4 py-3 text-sm text-[#172033] outline-none">
+                    <select value={form.venueId} onChange={(event) => updateEditField(serviceArea.id, "venueId", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none">
                       {venues.map((venue) => <option key={venue.id} value={venue.id}>{venue.name}</option>)}
                     </select>
                   </label>
                   <label className="block">
                     <FieldLabel>Department</FieldLabel>
-                    <select value={form.departmentId} onChange={(event) => updateEditField(serviceArea.id, "departmentId", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#d8deea] bg-[#fbfcfe] px-4 py-3 text-sm text-[#172033] outline-none">
+                    <select value={form.departmentId} onChange={(event) => updateEditField(serviceArea.id, "departmentId", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none">
                       {availableDepartments(form.venueId).map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
                     </select>
                   </label>
                   <label className="block">
                     <FieldLabel>Name</FieldLabel>
-                    <input value={form.name} onChange={(event) => updateEditField(serviceArea.id, "name", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#d8deea] bg-[#fbfcfe] px-4 py-3 text-sm text-[#172033] outline-none" />
+                    <input value={form.name} onChange={(event) => updateEditField(serviceArea.id, "name", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none" />
                   </label>
                   <label className="block">
                     <FieldLabel>Slug</FieldLabel>
-                    <input value={form.slug} onChange={(event) => updateEditField(serviceArea.id, "slug", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#d8deea] bg-[#fbfcfe] px-4 py-3 text-sm text-[#172033] outline-none" />
+                    <input value={form.slug} onChange={(event) => updateEditField(serviceArea.id, "slug", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none" />
                   </label>
                   <label className="block">
                     <FieldLabel>Tipping mode</FieldLabel>
-                    <select value={form.tippingMode} onChange={(event) => updateEditField(serviceArea.id, "tippingMode", event.target.value as ServiceAreaSummary["tippingMode"])} className="mt-2 w-full rounded-2xl border border-[#d8deea] bg-[#fbfcfe] px-4 py-3 text-sm text-[#172033] outline-none">
+                    <select value={form.tippingMode} onChange={(event) => updateEditField(serviceArea.id, "tippingMode", event.target.value as ServiceAreaSummary["tippingMode"])} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none">
                       {tippingModes.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
                     </select>
                   </label>
                   <label className="block">
                     <FieldLabel>Display mode</FieldLabel>
-                    <select value={form.displayMode} onChange={(event) => updateEditField(serviceArea.id, "displayMode", event.target.value as ServiceAreaSummary["displayMode"])} className="mt-2 w-full rounded-2xl border border-[#d8deea] bg-[#fbfcfe] px-4 py-3 text-sm text-[#172033] outline-none">
+                    <select value={form.displayMode} onChange={(event) => updateEditField(serviceArea.id, "displayMode", event.target.value as ServiceAreaSummary["displayMode"])} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none">
                       {displayModes.map((mode) => <option key={mode.value} value={mode.value}>{mode.label}</option>)}
                     </select>
                   </label>
                   <label className="block md:col-span-2">
                     <FieldLabel>Description</FieldLabel>
-                    <textarea rows={3} value={form.description} onChange={(event) => updateEditField(serviceArea.id, "description", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#d8deea] bg-[#fbfcfe] px-4 py-3 text-sm text-[#172033] outline-none" />
+                    <textarea rows={3} value={form.description} onChange={(event) => updateEditField(serviceArea.id, "description", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none" />
                   </label>
                   <div className="md:col-span-2">
-                    <button type="button" onClick={() => handleUpdate(serviceArea.id)} disabled={isPending} className="rounded-full bg-[#f3d312] px-6 py-3 text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60">
+                    <button type="button" onClick={() => handleUpdate(serviceArea.id)} disabled={isPending} className="rounded-full border border-[#b49e89] bg-[#b49e89] px-6 py-3 text-sm font-semibold text-[#fffaf4] transition disabled:cursor-not-allowed disabled:opacity-60">
                       Save changes
                     </button>
                   </div>
                 </div>
               ) : (
-                <div className="mt-5 rounded-[1.4rem] border border-[#2f2f2f] bg-[#070707] p-4">
-                  <p className="text-sm text-white">{serviceArea.description || "No description set."}</p>
-                  <div className="mt-3 flex flex-wrap gap-3 text-sm text-[#bdbdbd]">
-                    <span>Tipping: {serviceArea.tippingMode.replaceAll("_", " ")}</span>
-                    <span>Status: {serviceArea.isActive ? "ACTIVE" : "INACTIVE"}</span>
-                  </div>
+                <div className="mt-5 rounded-[1.4rem] border border-[#d9c8b8] bg-[rgba(246,239,230,0.88)] p-4">
+                  <p className="text-sm text-[#5d4b3d]">{serviceArea.description || "No description set."}</p>
+                  <p className="mt-3 text-sm text-[#8b7768]">
+                    Tipping: {serviceArea.tippingMode.replaceAll("_", " ")}
+                  </p>
+                  <p className="mt-2 text-sm text-[#8b7768]">
+                    Status: {serviceArea.isActive ? "ACTIVE" : "INACTIVE"}
+                  </p>
                 </div>
               )}
             </article>
