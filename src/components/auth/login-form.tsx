@@ -26,13 +26,18 @@ const demoCredentials = [
     password: "Password123!",
   },
   {
-    label: "Shark Club Manager",
-    email: "manager@sharkclub.example",
+    label: "Sandman Admin",
+    email: "admin@sandman.example",
     password: "Password123!",
   },
   {
-    label: "Ember Viewer",
-    email: "viewer@ember.example",
+    label: "Sandman Manager",
+    email: "manager@sandman.example",
+    password: "Password123!",
+  },
+  {
+    label: "Sandman Viewer",
+    email: "viewer@sandman.example",
     password: "Password123!",
   },
 ];
