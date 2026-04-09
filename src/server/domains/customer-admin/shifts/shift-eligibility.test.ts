@@ -108,6 +108,27 @@ test("shift eligibility falls back to team mode when configured and no active sh
   assert.deepEqual(result.staffOptions, []);
 });
 
+test("shift eligibility preserves team-or-individual journeys when no active shift exists", async () => {
+  const service = new ShiftEligibilityService({
+    shift: {
+      findFirst: async () => null,
+    },
+  } as never);
+
+  const result = await service.getActiveShiftStaffByServiceArea({
+    serviceAreaId: "service_area_2b",
+    venueId: "venue_1",
+    departmentId: "department_1",
+    tippingMode: "TEAM_OR_INDIVIDUAL",
+    noActiveShiftBehavior: "DISABLE_INDIVIDUAL",
+  });
+
+  assert.equal(result.effectiveTippingMode, "TEAM_OR_INDIVIDUAL");
+  assert.equal(result.individualTippingUnavailable, true);
+  assert.match(result.individualTippingMessage ?? "", /individual tipping is unavailable/i);
+  assert.deepEqual(result.staffOptions, []);
+});
+
 test("shift eligibility disables individual tipping when configured and no active shift exists", async () => {
   const service = new ShiftEligibilityService({
     shift: {

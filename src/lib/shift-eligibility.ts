@@ -119,21 +119,21 @@ export class ShiftEligibilityService {
   }
 
   private resolveNoActiveShift(input: ServiceAreaEligibilityInput): ServiceAreaEligibility {
+    if (input.tippingMode === "TEAM_OR_INDIVIDUAL") {
+      return {
+        effectiveTippingMode: "TEAM_OR_INDIVIDUAL",
+        staffOptions: [],
+        individualTippingUnavailable: true,
+        individualTippingMessage: "Individual tipping is unavailable right now.",
+      };
+    }
+
     if (input.noActiveShiftBehavior === "FALLBACK_TO_TEAM") {
       return {
         effectiveTippingMode: "TEAM_ONLY",
         staffOptions: [],
         individualTippingUnavailable: false,
         individualTippingMessage: null,
-      };
-    }
-
-    if (input.tippingMode === "TEAM_OR_INDIVIDUAL") {
-      return {
-        effectiveTippingMode: "TEAM_ONLY",
-        staffOptions: [],
-        individualTippingUnavailable: true,
-        individualTippingMessage: "Individual tipping is unavailable right now.",
       };
     }
 
