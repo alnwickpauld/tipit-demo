@@ -21,23 +21,8 @@ type LoginResponse = {
 
 const demoCredentials = [
   {
-    label: "Tipit Admin",
-    email: "platform-admin@tipit.example",
-    password: "Password123!",
-  },
-  {
     label: "Sandman Admin",
     email: "admin@sandman.example",
-    password: "Password123!",
-  },
-  {
-    label: "Sandman Manager",
-    email: "manager@sandman.example",
-    password: "Password123!",
-  },
-  {
-    label: "Sandman Viewer",
-    email: "viewer@sandman.example",
     password: "Password123!",
   },
 ];
@@ -166,8 +151,8 @@ export function LoginForm() {
         </div>
 
         <div className="mt-6 rounded-[1.5rem] border border-[#d8deea] bg-[#eef3fb] px-4 py-4 text-sm leading-6 text-[#46546a]">
-          Tipit Admin opens the platform-level customer area. Customer users open the
-          customer-scoped workspace with venues, staff, pools, and payroll settings.
+          Use the seeded Sandman customer admin account to open the
+          customer-scoped workspace with venues, service areas, staff, pools, and payroll settings.
         </div>
       </aside>
     </div>
