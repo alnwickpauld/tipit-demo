@@ -884,8 +884,8 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
       departmentId: breakfastDepartment.id,
       name: "Breakfast Service Live Shift",
       timezone: "Europe/London",
-      startsAt: addHours(now, -1.5),
-      endsAt: addHours(now, 2.5),
+      startsAt: addDays(now, -14),
+      endsAt: addDays(now, 14),
       status: ShiftStatus.ACTIVE,
     },
   });
@@ -897,8 +897,8 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
       departmentId: roomServiceDepartment.id,
       name: "Room Service Lunch Shift",
       timezone: "Europe/London",
-      startsAt: addHours(now, -1),
-      endsAt: addHours(now, 5),
+      startsAt: addDays(now, -14),
+      endsAt: addDays(now, 14),
       status: ShiftStatus.ACTIVE,
     },
   });
@@ -910,8 +910,8 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
       departmentId: eventsDepartment.id,
       name: "Conference & Events Shift",
       timezone: "Europe/Dublin",
-      startsAt: addHours(now, -2),
-      endsAt: addHours(now, 6),
+      startsAt: addDays(now, -14),
+      endsAt: addDays(now, 14),
       status: ShiftStatus.ACTIVE,
     },
   });
