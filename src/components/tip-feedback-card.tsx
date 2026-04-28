@@ -10,12 +10,19 @@ export function TipFeedbackCard({
   targetLabel: string;
 }) {
   const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function submitRating(nextRating: number) {
+  async function submitFeedback(nextRating = rating) {
+    const trimmedComment = comment.trim();
     setRating(nextRating);
+
+    if (nextRating < 1 && !trimmedComment) {
+      setError("Add a rating, a comment, or both.");
+      return;
+    }
 
     if (!tipTransactionId) {
       setSubmitted(true);
@@ -32,7 +39,8 @@ export function TipFeedbackCard({
       },
       body: JSON.stringify({
         tipTransactionId,
-        rating: nextRating,
+        rating: nextRating > 0 ? nextRating : undefined,
+        comment: trimmedComment || undefined,
       }),
     });
 
@@ -57,7 +65,10 @@ export function TipFeedbackCard({
             key={star}
             type="button"
             disabled={submitted || isSubmitting}
-            onClick={() => submitRating(star)}
+            onClick={() => {
+              setRating(star);
+              setError(null);
+            }}
             aria-label={`Rate ${star} stars`}
             className={`relative flex h-20 w-20 items-center justify-center transition ${
               star <= rating ? "text-[#c7b7a5]" : "text-[#d8d8d8]"
@@ -75,9 +86,32 @@ export function TipFeedbackCard({
           </button>
         ))}
       </div>
+      <label className="mx-auto mt-5 block max-w-md text-left">
+        <span className="text-sm font-medium text-[#4f4f4f]">Optional comment</span>
+        <textarea
+          value={comment}
+          onChange={(event) => {
+            setComment(event.target.value);
+            setError(null);
+          }}
+          disabled={submitted || isSubmitting}
+          rows={3}
+          maxLength={500}
+          placeholder="Tell us a little more."
+          className="mt-2 w-full rounded-2xl border border-[#cfc4b6] bg-white px-4 py-3 text-sm text-[#3f3f3f] outline-none placeholder:text-[#9d9d9d] disabled:opacity-70"
+        />
+      </label>
+      <button
+        type="button"
+        onClick={() => void submitFeedback()}
+        disabled={submitted || isSubmitting || (rating < 1 && comment.trim().length === 0)}
+        className="mt-5 w-full rounded-xl bg-[#c7b7a5] px-6 py-4 text-base font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {isSubmitting ? "Sending feedback..." : "Send feedback"}
+      </button>
       <div className="mx-auto mt-5 h-px w-full max-w-[16rem] bg-[#bcbcbc]" />
       {submitted ? (
-        <p className="mt-4 text-sm text-[#4f4f4f]">Thanks for leaving a rating.</p>
+        <p className="mt-4 text-sm text-[#4f4f4f]">Thanks for sharing your feedback.</p>
       ) : null}
       {error ? <p className="mt-4 text-sm text-[#9f2d20]">{error}</p> : null}
     </section>

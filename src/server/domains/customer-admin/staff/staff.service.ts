@@ -44,7 +44,7 @@ export class StaffService {
           where: { isActive: true },
           orderBy: [{ isPrimary: "desc" }, { department: { name: "asc" } }],
           include: {
-            department: { select: { id: true, name: true, type: true } },
+            department: { select: { id: true, name: true, revenueCentreType: true } },
           },
         },
       },
@@ -63,7 +63,7 @@ export class StaffService {
           where: { isActive: true },
           orderBy: [{ isPrimary: "desc" }, { department: { name: "asc" } }],
           include: {
-            department: { select: { id: true, name: true, type: true } },
+            department: { select: { id: true, name: true, revenueCentreType: true } },
           },
         },
       },
@@ -103,7 +103,7 @@ export class StaffService {
         departmentAssignments: {
           where: { isActive: true },
           include: {
-            department: { select: { id: true, name: true, type: true } },
+            department: { select: { id: true, name: true, revenueCentreType: true } },
           },
         },
       },
@@ -166,7 +166,7 @@ export class StaffService {
         departmentAssignments: {
           where: { isActive: true },
           include: {
-            department: { select: { id: true, name: true, type: true } },
+            department: { select: { id: true, name: true, revenueCentreType: true } },
           },
         },
       },

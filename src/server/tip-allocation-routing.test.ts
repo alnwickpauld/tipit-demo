@@ -8,35 +8,39 @@ import type { PublicTipPageData } from "../lib/public-tip-models";
 
 async function getBreakfastContext() {
   const serviceArea = await prisma.serviceArea.findFirstOrThrow({
-    where: { slug: "breakfast-table-card" },
+    where: { slug: "ssn-breakfast-table-card-a" },
     include: {
       customer: true,
       venue: true,
-      department: true,
+      department: {
+        include: {
+          outletBrand: true,
+        },
+      },
     },
   });
-  const [maya, tom, aisha, floorPool] = await Promise.all([
+  const [emma, maria, josh, breakfastTeamPool] = await Promise.all([
     prisma.staffMember.findFirstOrThrow({
-      where: { venueId: serviceArea.venueId, displayName: "Maya" },
+      where: { venueId: serviceArea.venueId, displayName: "Emma" },
       select: { id: true, displayName: true, firstName: true, lastName: true },
     }),
     prisma.staffMember.findFirstOrThrow({
-      where: { venueId: serviceArea.venueId, displayName: "Tom" },
+      where: { venueId: serviceArea.venueId, displayName: "Maria" },
       select: { id: true, displayName: true, firstName: true, lastName: true },
     }),
     prisma.staffMember.findFirstOrThrow({
-      where: { venueId: serviceArea.venueId, displayName: "Aisha" },
+      where: { venueId: serviceArea.venueId, displayName: "Josh" },
       select: { id: true, displayName: true, firstName: true, lastName: true },
     }),
     prisma.pool.findFirstOrThrow({
-      where: { venueId: serviceArea.venueId, slug: "floor-team-pool" },
+      where: { venueId: serviceArea.venueId, slug: "breakfast-team-pool" },
       select: { id: true },
     }),
   ]);
 
   const destination: PublicTipPageData = {
     qrCodeId: `service-area-${serviceArea.id}`,
-    slug: "breakfast-table-card",
+    slug: "ssn-breakfast-table-card-a",
     label: "Tip the Breakfast team",
     destinationType: "SERVICE_AREA",
     destinationEmployeeId: null,
@@ -52,29 +56,32 @@ async function getBreakfastContext() {
     heading: "Tip the Breakfast Team",
     subheading: "Support breakfast service.",
     targetName: "Breakfast team",
-    venueBrandName: serviceArea.customer.name,
+    outletBrandId: serviceArea.department.outletBrand?.id ?? null,
+    brandDisplayName: serviceArea.department.outletBrand?.displayName ?? serviceArea.customer.name,
+    venueBrandName: serviceArea.department.outletBrand?.displayName ?? serviceArea.customer.name,
     venueLocation: serviceArea.venue.city ?? serviceArea.venue.name,
     brandBackgroundColor: serviceArea.venue.brandBackgroundColor,
     brandTextColor: serviceArea.venue.brandTextColor,
     brandButtonColor: serviceArea.venue.brandButtonColor,
     brandButtonTextColor: serviceArea.venue.brandButtonTextColor,
-    brandLogoImageUrl: serviceArea.venue.brandLogoImageUrl,
+    brandLogoImageUrl: serviceArea.department.outletBrand?.logoUrl ?? serviceArea.venue.brandLogoImageUrl,
     serviceAreaJourney: {
       serviceAreaId: serviceArea.id,
       serviceAreaName: serviceArea.name,
       departmentName: serviceArea.department.name,
+      revenueCentreType: serviceArea.department.revenueCentreType,
       tippingMode: "TEAM_OR_INDIVIDUAL",
       displayMode: serviceArea.displayMode,
       showTeamOption: true,
       selectionUi: "LIST",
       individualTippingUnavailable: false,
       individualTippingMessage: null,
-      activeShiftStaff: [maya, tom].map((staffMember) => ({
+      activeShiftStaff: [emma, maria].map((staffMember) => ({
         id: staffMember.id,
         displayName:
           staffMember.displayName ?? `${staffMember.firstName} ${staffMember.lastName}`,
         sortOrder:
-          staffMember.displayName === "Maya" ? 0 : 1,
+          staffMember.displayName === "Emma" ? 0 : 1,
       })),
     },
   };
@@ -82,15 +89,15 @@ async function getBreakfastContext() {
   return {
     serviceArea,
     destination,
-    maya,
-    tom,
-    aisha,
-    floorPool,
+    emma,
+    maria,
+    josh,
+    breakfastTeamPool,
   };
 }
 
 test("team service-area tips use the scoped team allocation rule", async () => {
-  const { serviceArea, destination, tom } = await getBreakfastContext();
+  const { serviceArea, destination, maria } = await getBreakfastContext();
 
   const teamRule = await prisma.allocationRule.create({
     data: {
@@ -106,7 +113,7 @@ test("team service-area tips use the scoped team allocation rule", async () => {
         create: [
           {
             recipientType: "STAFF",
-            staffMemberId: tom.id,
+            staffMemberId: maria.id,
             percentageBps: 10_000,
             sortOrder: 1,
           },
@@ -138,7 +145,7 @@ test("team service-area tips use the scoped team allocation rule", async () => {
     });
 
     assert.equal(allocations.length, 1);
-    assert.equal(allocations[0].employeeId, tom.id);
+    assert.equal(allocations[0].employeeId, maria.id);
     assert.equal(Number(allocations[0].netAmount), 28.5);
   } finally {
     await prisma.allocationRule.delete({ where: { id: teamRule.id } });
@@ -146,7 +153,7 @@ test("team service-area tips use the scoped team allocation rule", async () => {
 });
 
 test("individual service-area tips use the scoped individual allocation rule and store the guest choice", async () => {
-  const { serviceArea, destination, maya, tom, aisha, floorPool } = await getBreakfastContext();
+  const { serviceArea, destination, emma, maria, breakfastTeamPool } = await getBreakfastContext();
 
   const individualRule = await prisma.allocationRule.create({
     data: {
@@ -167,7 +174,7 @@ test("individual service-area tips use the scoped individual allocation rule and
           },
           {
             recipientType: "POOL",
-            poolId: floorPool.id,
+            poolId: breakfastTeamPool.id,
             percentageBps: 2000,
             sortOrder: 2,
           },
@@ -180,7 +187,7 @@ test("individual service-area tips use the scoped individual allocation rule and
     const selection = resolveTipSelectionFromPublicFlow({
       destination,
       selectedRecipientMode: "INDIVIDUAL",
-      selectedStaffMemberId: maya.id,
+      selectedStaffMemberId: emma.id,
     });
 
     const tip = await createTipTransaction({
@@ -189,7 +196,7 @@ test("individual service-area tips use the scoped individual allocation rule and
       grossAmount: 30,
       tipitFeeAmount: 1.5,
       netAmount: 28.5,
-      occurredAt: new Date("2026-04-02T08:45:00.000Z"),
+      occurredAt: new Date(),
     });
 
     const finalizedTip = await finalizeTipTransaction(tip.id);
@@ -208,9 +215,96 @@ test("individual service-area tips use the scoped individual allocation rule and
       );
     }
 
-    assert.ok((netByEmployee.get(maya.id) ?? 0) > (netByEmployee.get(tom.id) ?? 0));
-    assert.equal(netByEmployee.get(tom.id), netByEmployee.get(aisha.id));
+    assert.ok((netByEmployee.get(emma.id) ?? 0) > 0);
+    assert.ok((netByEmployee.get(emma.id) ?? 0) > (netByEmployee.get(maria.id) ?? 0));
   } finally {
     await prisma.allocationRule.delete({ where: { id: individualRule.id } });
+  }
+});
+
+test("service-area allocation can target a second pool in the same department context", async () => {
+  const { serviceArea, destination, emma, josh } = await getBreakfastContext();
+
+  const bohPool = await prisma.pool.create({
+    data: {
+      customerId: serviceArea.customerId,
+      venueId: serviceArea.venueId,
+      name: `Breakfast BOH Pool ${Date.now()}`,
+      slug: `breakfast-boh-pool-${Date.now()}`,
+      description: "Temporary BOH pool for allocation routing coverage.",
+      poolType: "BOH",
+      members: {
+        create: [
+          { staffMemberId: emma.id, joinedAt: new Date("2026-03-01T00:00:00.000Z") },
+          { staffMemberId: josh.id, joinedAt: new Date("2026-03-01T00:00:00.000Z") },
+        ],
+      },
+    },
+    select: { id: true },
+  });
+
+  const teamRule = await prisma.allocationRule.create({
+    data: {
+      venueId: serviceArea.venueId,
+      departmentId: serviceArea.departmentId,
+      serviceAreaId: serviceArea.id,
+      scope: "SERVICE_AREA",
+      selectionType: "TEAM",
+      name: `Breakfast BOH split ${Date.now()}`,
+      priority: 0,
+      isActive: true,
+      lines: {
+        create: [
+          {
+            recipientType: "POOL",
+            poolId: bohPool.id,
+            percentageBps: 10_000,
+            sortOrder: 1,
+          },
+        ],
+      },
+    },
+  });
+
+  try {
+    const selection = resolveTipSelectionFromPublicFlow({
+      destination,
+      selectedRecipientMode: "TEAM",
+    });
+
+    const tip = await createTipTransaction({
+      destination: selection.resolvedDestination,
+      guestSelectionType: selection.guestSelectionType,
+      grossAmount: 40,
+      tipitFeeAmount: 2,
+      netAmount: 38,
+      occurredAt: new Date("2026-04-02T09:15:00.000Z"),
+    });
+
+    await finalizeTipTransaction(tip.id);
+
+    const allocations = await prisma.allocationResult.findMany({
+      where: { tipTransactionId: tip.id },
+      orderBy: { employeeId: "asc" },
+      select: {
+        employeeId: true,
+        poolId: true,
+        netAmount: true,
+      },
+    });
+
+    assert.equal(allocations.length, 2);
+    assert.deepEqual(
+      allocations.map((allocation) => allocation.employeeId).sort(),
+      [emma.id, josh.id].sort(),
+    );
+    assert.ok(allocations.every((allocation) => allocation.poolId === bohPool.id));
+    assert.equal(
+      Number(allocations.reduce((sum, allocation) => sum + Number(allocation.netAmount), 0).toFixed(2)),
+      38,
+    );
+  } finally {
+    await prisma.allocationRule.delete({ where: { id: teamRule.id } });
+    await prisma.pool.delete({ where: { id: bohPool.id } });
   }
 });

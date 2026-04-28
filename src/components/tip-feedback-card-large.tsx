@@ -12,12 +12,19 @@ export function TipFeedbackCardLarge({
   textColor?: string;
 }) {
   const [rating, setRating] = useState(0);
+  const [comment, setComment] = useState("");
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function submitRating(nextRating: number) {
+  async function submitFeedback(nextRating = rating) {
+    const trimmedComment = comment.trim();
     setRating(nextRating);
+
+    if (nextRating < 1 && !trimmedComment) {
+      setError("Add a rating, a comment, or both.");
+      return;
+    }
 
     if (!tipTransactionId) {
       setSubmitted(true);
@@ -34,7 +41,8 @@ export function TipFeedbackCardLarge({
       },
       body: JSON.stringify({
         tipTransactionId,
-        rating: nextRating,
+        rating: nextRating > 0 ? nextRating : undefined,
+        comment: trimmedComment || undefined,
       }),
     });
 
@@ -61,7 +69,10 @@ export function TipFeedbackCardLarge({
             key={star}
             type="button"
             disabled={submitted || isSubmitting}
-            onClick={() => submitRating(star)}
+            onClick={() => {
+              setRating(star);
+              setError(null);
+            }}
             aria-label={`Rate ${star} stars`}
             className="flex h-20 w-20 items-center justify-center disabled:cursor-default"
           >
@@ -76,9 +87,35 @@ export function TipFeedbackCardLarge({
           </button>
         ))}
       </div>
+      <label className="mx-auto mt-6 block max-w-md text-left">
+        <span className="text-sm font-medium text-[#6d5a4d]">
+          Optional comment
+        </span>
+        <textarea
+          value={comment}
+          onChange={(event) => {
+            setComment(event.target.value);
+            setError(null);
+          }}
+          disabled={submitted || isSubmitting}
+          rows={4}
+          maxLength={500}
+          placeholder="Tell us a little more about the service you received."
+          className="mt-2 w-full rounded-2xl border border-[#cfb9a3] bg-[rgba(255,251,246,0.95)] px-4 py-3 text-sm text-[#4b3b2f] outline-none placeholder:text-[#a18f81] disabled:opacity-70"
+        />
+      </label>
+      <button
+        type="button"
+        onClick={() => void submitFeedback()}
+        disabled={submitted || isSubmitting || (rating < 1 && comment.trim().length === 0)}
+        className="mt-5 w-full rounded-xl px-6 py-4 text-base font-semibold transition disabled:cursor-not-allowed disabled:opacity-60"
+        style={{ backgroundColor: "#b49e89", color: "#fffaf4" }}
+      >
+        {isSubmitting ? "Sending feedback..." : "Send feedback"}
+      </button>
       <div className="mx-auto mt-5 h-px w-full max-w-[16rem] bg-[#bba894]" />
       {submitted ? (
-        <p className="mt-4 text-sm text-[#6d5a4d]">Thanks for leaving a rating.</p>
+        <p className="mt-4 text-sm text-[#6d5a4d]">Thanks for sharing your feedback.</p>
       ) : null}
       {error ? <p className="mt-4 text-sm text-[#9f5846]">{error}</p> : null}
     </section>

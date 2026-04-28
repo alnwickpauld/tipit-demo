@@ -1,17 +1,12 @@
 import { z } from "zod";
+import { revenueCentreTypes } from "../../../../lib/revenue-centres";
 
-const departmentTypeSchema = z.enum([
-  "MEETING_EVENTS",
-  "BREAKFAST",
-  "ROOM_SERVICE",
-  "BAR",
-  "RESTAURANT",
-  "OTHER",
-]);
+const revenueCentreTypeSchema = z.enum(revenueCentreTypes);
 
 export const listDepartmentsQuerySchema = z.object({
   customerId: z.string().min(1).optional(),
   venueId: z.string().min(1).optional(),
+  revenueCentreType: revenueCentreTypeSchema.optional(),
   search: z.string().min(1).optional(),
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
@@ -20,9 +15,10 @@ export const listDepartmentsQuerySchema = z.object({
 export const createDepartmentSchema = z.object({
   customerId: z.string().min(1).optional(),
   venueId: z.string().min(1),
+  outletBrandId: z.string().min(1),
   name: z.string().min(2),
   slug: z.string().min(2),
-  type: departmentTypeSchema.default("OTHER"),
+  revenueCentreType: revenueCentreTypeSchema.default("RESTAURANT"),
   description: z.string().optional(),
   isActive: z.boolean().optional(),
 });

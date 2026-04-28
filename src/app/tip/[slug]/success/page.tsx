@@ -100,7 +100,7 @@ export default async function TipSuccessPage({
         {destination.brandLogoImageUrl ? (
           <img
             src={destination.brandLogoImageUrl}
-            alt={destination.venueBrandName}
+            alt={destination.brandDisplayName}
             className="mx-auto h-auto w-[220px] max-w-full object-contain"
           />
         ) : (

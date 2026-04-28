@@ -8,6 +8,7 @@ type AllocationRuleInput = {
   venueId: string;
   departmentId?: string;
   serviceAreaId?: string;
+  templateId?: string;
   scope: "VENUE_DEFAULT" | "DEPARTMENT" | "SERVICE_AREA";
   selectionType?: "TEAM" | "INDIVIDUAL";
   name: string;
@@ -22,6 +23,26 @@ type AllocationRuleInput = {
     poolId?: string;
     percentageBps: number;
     sortOrder: number;
+  }>;
+};
+
+type CreateFromTemplateInput = {
+  templateId: string;
+  venueId: string;
+  departmentId?: string;
+  serviceAreaId?: string;
+  scope?: "VENUE_DEFAULT" | "DEPARTMENT" | "SERVICE_AREA";
+  selectionType?: "TEAM" | "INDIVIDUAL";
+  name?: string;
+  description?: string;
+  priority?: number;
+  isActive?: boolean;
+  effectiveFrom?: Date;
+  effectiveTo?: Date;
+  lineRecipients: Array<{
+    sortOrder: number;
+    staffMemberId?: string;
+    poolId?: string;
   }>;
 };
 
@@ -54,6 +75,7 @@ function buildRuleUpdateData(
   input: Partial<AllocationRuleInput>,
 ): Prisma.AllocationRuleUncheckedUpdateInput {
   return {
+    templateId: input.templateId,
     departmentId: input.departmentId,
     serviceAreaId: input.serviceAreaId,
     scope: input.scope,
@@ -71,7 +93,14 @@ export class AllocationRulesService {
   constructor(
     private readonly db: Pick<
       PrismaClient,
-      "allocationRule" | "allocationRuleLine" | "venue" | "staffMember" | "pool" | "department" | "serviceArea"
+      | "allocationRule"
+      | "allocationRuleLine"
+      | "allocationRuleTemplate"
+      | "venue"
+      | "staffMember"
+      | "pool"
+      | "department"
+      | "serviceArea"
     > = prisma,
   ) {}
 
@@ -81,13 +110,34 @@ export class AllocationRulesService {
       orderBy: [{ venue: { name: "asc" } }, { priority: "asc" }],
       include: {
         venue: { select: { id: true, name: true } },
-        department: { select: { id: true, name: true, type: true } },
+        department: { select: { id: true, name: true, revenueCentreType: true } },
         serviceArea: { select: { id: true, name: true, slug: true } },
         lines: {
           include: {
             staffMember: { select: { id: true, firstName: true, lastName: true, displayName: true } },
             pool: { select: { id: true, name: true } },
           },
+        },
+      },
+    });
+  }
+
+  async listTemplates(filters?: {
+    recommendedOnly?: boolean;
+    scope?: "VENUE_DEFAULT" | "DEPARTMENT" | "SERVICE_AREA";
+    selectionType?: "TEAM" | "INDIVIDUAL";
+  }) {
+    return this.db.allocationRuleTemplate.findMany({
+      where: {
+        isActive: true,
+        ...(filters?.recommendedOnly ? { isRecommended: true } : {}),
+        ...(filters?.scope ? { scope: filters.scope } : {}),
+        ...(filters?.selectionType ? { selectionType: filters.selectionType } : {}),
+      },
+      orderBy: [{ isRecommended: "desc" }, { name: "asc" }],
+      include: {
+        lines: {
+          orderBy: { sortOrder: "asc" },
         },
       },
     });
@@ -102,6 +152,7 @@ export class AllocationRulesService {
         venueId: input.venueId,
         departmentId: input.departmentId,
         serviceAreaId: input.serviceAreaId,
+        templateId: input.templateId,
         scope: input.scope,
         selectionType: input.selectionType,
         name: input.name,
@@ -115,6 +166,68 @@ export class AllocationRulesService {
         },
       },
       include: { lines: true, department: true, serviceArea: true },
+    });
+  }
+
+  async createFromTemplate(customerId: string, input: CreateFromTemplateInput) {
+    const template = await this.db.allocationRuleTemplate.findFirst({
+      where: {
+        id: input.templateId,
+        isActive: true,
+      },
+      include: {
+        lines: {
+          orderBy: { sortOrder: "asc" },
+        },
+      },
+    });
+
+    if (!template) {
+      throw new NotFoundError("Allocation rule template not found");
+    }
+
+    const bindingBySortOrder = new Map(
+      input.lineRecipients.map((binding) => [binding.sortOrder, binding]),
+    );
+
+    const lines = template.lines.map((line) => {
+      const binding = bindingBySortOrder.get(line.sortOrder);
+
+      if (line.recipientType === "POOL" && !binding?.poolId) {
+        throw new ValidationAppError(
+          `Template line ${line.sortOrder} requires a target pool before the rule can be created`,
+        );
+      }
+
+      if (line.recipientType === "STAFF" && !binding?.staffMemberId) {
+        throw new ValidationAppError(
+          `Template line ${line.sortOrder} requires a target staff member before the rule can be created`,
+        );
+      }
+
+      return {
+        recipientType: line.recipientType,
+        staffMemberId: binding?.staffMemberId,
+        poolId: binding?.poolId,
+        percentageBps: line.percentageBps,
+        sortOrder: line.sortOrder,
+      };
+    });
+
+    return this.create(customerId, {
+      templateId: template.id,
+      venueId: input.venueId,
+      departmentId: input.departmentId,
+      serviceAreaId: input.serviceAreaId,
+      scope: input.scope ?? template.scope,
+      selectionType: input.selectionType ?? template.selectionType ?? undefined,
+      name: input.name ?? template.name,
+      description: input.description ?? template.description ?? undefined,
+      priority: input.priority ?? template.priority,
+      isActive: input.isActive ?? true,
+      effectiveFrom: input.effectiveFrom,
+      effectiveTo: input.effectiveTo,
+      lines,
     });
   }
 

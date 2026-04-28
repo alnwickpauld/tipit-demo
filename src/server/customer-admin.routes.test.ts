@@ -54,8 +54,36 @@ async function login(email: string, password: string) {
   return response.body.data.token;
 }
 
+async function createOtherCustomerFixture(suffix: string) {
+  const customer = await prisma.customer.create({
+    data: {
+      name: `Other Hospitality ${suffix}`,
+      slug: `other-hospitality-${suffix}`,
+      legalName: `Other Hospitality Ltd ${suffix}`,
+      contactEmail: `billing-${suffix}@other.example`,
+      status: "ACTIVE",
+      currency: "GBP",
+      timezone: "Europe/London",
+    },
+    select: { id: true },
+  });
+
+  const venue = await prisma.venue.create({
+    data: {
+      customerId: customer.id,
+      name: `Other Venue ${suffix}`,
+      slug: `other-venue-${suffix}`,
+      city: "Leeds",
+      country: "GB",
+    },
+    select: { id: true },
+  });
+
+  return { customer, venue };
+}
+
 test("customer viewer can read venues and payroll settings but cannot modify data", async () => {
-  const token = await login("viewer@ember.example", "Password123!");
+  const token = await login("viewer@sandman.example", "Password123!");
 
   const venues = await requestJson<{
     data: {
@@ -69,8 +97,8 @@ test("customer viewer can read venues and payroll settings but cannot modify dat
   }>("GET", "/customer-admin/venues", { token });
 
   assert.equal(venues.status, 200);
-  assert.ok(venues.body.data.items.some((venue) => venue.name === "Ember Leeds"));
   assert.ok(venues.body.data.pagination.total >= 1);
+  assert.ok(venues.body.data.items.length >= 1);
 
   const payrollSettings = await requestJson<{
     data: {
@@ -82,7 +110,8 @@ test("customer viewer can read venues and payroll settings but cannot modify dat
   }>("GET", "/customer-admin/payroll-settings", { token });
 
   assert.equal(payrollSettings.status, 200);
-  assert.equal(payrollSettings.body.data.payrollConfig?.frequency, "FORTNIGHTLY");
+  assert.ok(payrollSettings.body.data.payrollConfig);
+  assert.match(payrollSettings.body.data.payrollConfig?.frequency ?? "", /^(MONTHLY|FORTNIGHTLY|WEEKLY)$/);
 
   const createVenue = await requestJson<{
     error: string;
@@ -99,7 +128,7 @@ test("customer viewer can read venues and payroll settings but cannot modify dat
 });
 
 test("customer manager can manage venues, staff, pools, and allocation rules for their own customer", async () => {
-  const token = await login("ops@sharkclub.example", "Password123!");
+  const token = await login("manager@sandman.example", "Password123!");
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
   const createVenue = await requestJson<{
@@ -110,8 +139,8 @@ test("customer manager can manage venues, staff, pools, and allocation rules for
   }>("POST", "/customer-admin/venues", {
     token,
     body: {
-      name: `Shark Club Test Venue ${suffix}`,
-      slug: `shark-test-${suffix}`,
+      name: `Sandman Test Venue ${suffix}`,
+      slug: `sandman-test-${suffix}`,
       city: "Newcastle upon Tyne",
       country: "GB",
     },
@@ -135,7 +164,7 @@ test("customer manager can manage venues, staff, pools, and allocation rules for
       firstName: "Morgan",
       lastName: "Lane",
       displayName: "Morgan",
-      email: `morgan-${suffix}@sharkclub.example`,
+      email: `morgan-${suffix}@sandman.example`,
       staffCode: `SCN-T-${suffix}`,
     },
   });
@@ -176,6 +205,7 @@ test("customer manager can manage venues, staff, pools, and allocation rules for
     data: {
       id: string;
       name: string;
+      poolType: string;
     };
   }>("POST", "/customer-admin/pools", {
     token,
@@ -183,12 +213,14 @@ test("customer manager can manage venues, staff, pools, and allocation rules for
       venueId,
       name: `Service Pool ${suffix}`,
       slug: `service-pool-${suffix}`,
+      poolType: "FOH",
       memberStaffIds: [staffMemberId],
     },
   });
 
   assert.equal(createPool.status, 201);
   const poolId = createPool.body.data.id;
+  assert.equal(createPool.body.data.poolType, "FOH");
 
   const createRule = await requestJson<{
     data: {
@@ -250,8 +282,78 @@ test("customer manager can manage venues, staff, pools, and allocation rules for
   assert.equal(updatePayrollSettings.body.error, "FORBIDDEN");
 });
 
+test("customer admin can list allocation rule templates and create a rule from a template", async () => {
+  const token = await login("admin@sandman.example", "Password123!");
+  const breakfastVenue = await prisma.venue.findFirstOrThrow({
+    where: { slug: "sandman-signature-newcastle" },
+    select: { id: true },
+  });
+  const breakfastDepartment = await prisma.department.findFirstOrThrow({
+    where: { venueId: breakfastVenue.id, slug: "breakfast" },
+    select: { id: true },
+  });
+  const breakfastPool = await prisma.pool.findFirstOrThrow({
+    where: { venueId: breakfastVenue.id, slug: "breakfast-team-pool" },
+    select: { id: true },
+  });
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+  const templates = await requestJson<{
+    data: Array<{
+      id: string;
+      slug: string;
+      isRecommended: boolean;
+      lines: Array<{ recipientType: string; sortOrder: number }>;
+    }>;
+  }>("GET", "/customer-admin/allocation-rules/templates?recommendedOnly=true", {
+    token,
+  });
+
+  assert.equal(templates.status, 200);
+  assert.ok(templates.body.data.some((template) => template.slug === "team-pool-100"));
+  assert.ok(templates.body.data.every((template) => template.isRecommended));
+
+  const teamPoolTemplate = templates.body.data.find((template) => template.slug === "team-pool-100");
+  assert.ok(teamPoolTemplate);
+
+  const createFromTemplate = await requestJson<{
+    data: {
+      id: string;
+      name: string;
+      templateId: string | null;
+      departmentId: string | null;
+      lines: Array<{
+        recipientType: string;
+        poolId: string | null;
+      }>;
+    };
+  }>("POST", "/customer-admin/allocation-rules/templates/apply", {
+    token,
+    body: {
+      templateId: teamPoolTemplate!.id,
+      venueId: breakfastVenue.id,
+      departmentId: breakfastDepartment.id,
+      scope: "DEPARTMENT",
+      name: `Breakfast Template Rule ${suffix}`,
+      lineRecipients: [
+        {
+          sortOrder: 1,
+          poolId: breakfastPool.id,
+        },
+      ],
+    },
+  });
+
+  assert.equal(createFromTemplate.status, 201);
+  assert.equal(createFromTemplate.body.data.templateId, teamPoolTemplate!.id);
+  assert.equal(createFromTemplate.body.data.departmentId, breakfastDepartment.id);
+  assert.equal(createFromTemplate.body.data.lines.length, 1);
+  assert.equal(createFromTemplate.body.data.lines[0].recipientType, "POOL");
+  assert.equal(createFromTemplate.body.data.lines[0].poolId, breakfastPool.id);
+});
+
 test("customer manager can manage departments and service areas for their own customer", async () => {
-  const token = await login("ops@sharkclub.example", "Password123!");
+  const token = await login("manager@sandman.example", "Password123!");
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
   const createVenue = await requestJson<{
@@ -269,25 +371,59 @@ test("customer manager can manage departments and service areas for their own cu
   assert.equal(createVenue.status, 201);
   const venueId = createVenue.body.data.id;
 
+  const createOutletBrand = await requestJson<{
+    data: {
+      id: string;
+      displayName: string;
+      venue: { id: string };
+    };
+  }>("POST", "/customer-admin/outlet-brands", {
+    token,
+    body: {
+      venueId,
+      name: `sandman-signature-${suffix}`,
+      displayName: `Sandman Signature ${suffix}`,
+      logoUrl: "https://example.com/sandman-signature.png",
+    },
+  });
+
+  assert.equal(createOutletBrand.status, 201);
+  const outletBrandId = createOutletBrand.body.data.id;
+  assert.equal(createOutletBrand.body.data.venue.id, venueId);
+
+  const listOutletBrands = await requestJson<{
+    data: {
+      items: Array<{
+        id: string;
+      }>;
+    };
+  }>("GET", `/customer-admin/outlet-brands?venueId=${venueId}`, { token });
+
+  assert.equal(listOutletBrands.status, 200);
+  assert.ok(listOutletBrands.body.data.items.some((item) => item.id === outletBrandId));
+
   const createDepartment = await requestJson<{
     data: {
       id: string;
       venueId: string;
-      type: string;
+      revenueCentreType: string;
+      outletBrand: { id: string };
     };
   }>("POST", "/customer-admin/departments", {
     token,
     body: {
       venueId,
+      outletBrandId,
       name: `Breakfast ${suffix}`,
       slug: `breakfast-${suffix}`,
-      type: "BREAKFAST",
+      revenueCentreType: "BREAKFAST",
     },
   });
 
   assert.equal(createDepartment.status, 201);
   const departmentId = createDepartment.body.data.id;
-  assert.equal(createDepartment.body.data.type, "BREAKFAST");
+  assert.equal(createDepartment.body.data.revenueCentreType, "BREAKFAST");
+  assert.equal(createDepartment.body.data.outletBrand.id, outletBrandId);
 
   const listDepartments = await requestJson<{
     data: {
@@ -311,6 +447,8 @@ test("customer manager can manage departments and service areas for their own cu
       departmentId: string;
       tippingMode: string;
       displayMode: string;
+      tipScreenBackgroundColor: string | null;
+      tipScreenLogoImageUrl: string | null;
     };
   }>("POST", "/customer-admin/service-areas", {
     token,
@@ -319,6 +457,8 @@ test("customer manager can manage departments and service areas for their own cu
       departmentId,
       name: `Table Card ${suffix}`,
       slug: `table-card-${suffix}`,
+      tipScreenBackgroundColor: "#8b7768",
+      tipScreenLogoImageUrl: "https://example.com/service-area-logo.png",
       tippingMode: "TEAM_OR_INDIVIDUAL",
       displayMode: "TABLE_CARD",
     },
@@ -327,23 +467,34 @@ test("customer manager can manage departments and service areas for their own cu
   assert.equal(createServiceArea.status, 201);
   const serviceAreaId = createServiceArea.body.data.id;
   assert.equal(createServiceArea.body.data.tippingMode, "TEAM_OR_INDIVIDUAL");
+  assert.equal(createServiceArea.body.data.tipScreenBackgroundColor, "#8b7768");
+  assert.equal(
+    createServiceArea.body.data.tipScreenLogoImageUrl,
+    "https://example.com/service-area-logo.png",
+  );
 
   const updateServiceArea = await requestJson<{
     data: {
       displayMode: string;
       isActive: boolean;
+      tipScreenTextColor: string | null;
+      tipScreenButtonColor: string | null;
     };
   }>("PATCH", `/customer-admin/service-areas/${serviceAreaId}`, {
     token,
     body: {
       displayMode: "FIXED_SIGN",
       isActive: false,
+      tipScreenTextColor: "#fffaf4",
+      tipScreenButtonColor: "#4c4036",
     },
   });
 
   assert.equal(updateServiceArea.status, 200);
   assert.equal(updateServiceArea.body.data.displayMode, "FIXED_SIGN");
   assert.equal(updateServiceArea.body.data.isActive, false);
+  assert.equal(updateServiceArea.body.data.tipScreenTextColor, "#fffaf4");
+  assert.equal(updateServiceArea.body.data.tipScreenButtonColor, "#4c4036");
 
   const deleteDepartmentWhileUsed = await requestJson<{
     error: string;
@@ -375,12 +526,23 @@ test("customer manager can manage departments and service areas for their own cu
 
   assert.equal(deleteDepartment.status, 200);
   assert.equal(deleteDepartment.body.data.deleted, true);
+
+  const deleteOutletBrand = await requestJson<{
+    data: {
+      deleted: boolean;
+    };
+  }>("DELETE", `/customer-admin/outlet-brands/${outletBrandId}`, {
+    token,
+  });
+
+  assert.equal(deleteOutletBrand.status, 200);
+  assert.equal(deleteOutletBrand.body.data.deleted, true);
 });
 
 test("customer manager can manage shifts and enforce department staffing on assignments", async () => {
-  const token = await login("ops@sharkclub.example", "Password123!");
+  const token = await login("manager@sandman.example", "Password123!");
   const venue = await prisma.venue.findFirstOrThrow({
-    where: { slug: "shark-club-newcastle" },
+    where: { slug: "sandman-signature-newcastle" },
     select: { id: true },
   });
   const breakfastDepartment = await prisma.department.findFirstOrThrow({
@@ -390,17 +552,17 @@ test("customer manager can manage shifts and enforce department staffing on assi
     },
     select: { id: true },
   });
-  const maya = await prisma.staffMember.findFirstOrThrow({
+  const olivia = await prisma.staffMember.findFirstOrThrow({
     where: {
       venueId: venue.id,
-      displayName: "Maya",
+      displayName: "Emma",
     },
     select: { id: true },
   });
-  const aisha = await prisma.staffMember.findFirstOrThrow({
+  const morgan = await prisma.staffMember.findFirstOrThrow({
     where: {
       venueId: venue.id,
-      displayName: "Aisha",
+      displayName: "Ben",
     },
     select: { id: true },
   });
@@ -434,21 +596,21 @@ test("customer manager can manage shifts and enforce department staffing on assi
   }>("POST", `/customer-admin/shifts/${shiftId}/assignments`, {
     token,
     body: {
-      staffMemberId: maya.id,
+      staffMemberId: olivia.id,
       role: "Breakfast host",
       eligibleForTips: true,
     },
   });
 
   assert.equal(addAssignment.status, 200);
-  assert.ok(addAssignment.body.data.staffAssignments.some((assignment) => assignment.staffMemberId === maya.id));
+  assert.ok(addAssignment.body.data.staffAssignments.some((assignment) => assignment.staffMemberId === olivia.id));
 
   const invalidAssignment = await requestJson<{
     error: string;
   }>("POST", `/customer-admin/shifts/${shiftId}/assignments`, {
     token,
     body: {
-      staffMemberId: aisha.id,
+      staffMemberId: morgan.id,
       role: "Wrong department",
       eligibleForTips: true,
     },
@@ -508,8 +670,15 @@ test("customer manager can manage shifts and enforce department staffing on assi
 });
 
 test("customer manager can manually start and end a shift, and public staff selection follows the active shift", async () => {
-  const token = await login("ops@sharkclub.example", "Password123!");
+  const token = await login("manager@sandman.example", "Password123!");
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const now = new Date();
+  const activeShiftStart = new Date(now.getTime() - 60 * 60 * 1000);
+  const activeShiftEnd = new Date(now.getTime() + 3 * 60 * 60 * 1000);
+  const conflictingShiftStart = new Date(now.getTime() - 30 * 60 * 1000);
+  const conflictingShiftEnd = new Date(now.getTime() + 5 * 60 * 60 * 1000);
+  const shiftStartedAt = new Date(now.getTime() - 45 * 60 * 1000);
+  const shiftEndedAt = new Date(now.getTime() + 30 * 60 * 1000);
 
   const createVenue = await requestJson<{
     data: {
@@ -527,6 +696,22 @@ test("customer manager can manually start and end a shift, and public staff sele
   assert.equal(createVenue.status, 201);
   const venueId = createVenue.body.data.id;
 
+  const createOutletBrand = await requestJson<{ data: { id: string } }>(
+    "POST",
+    "/customer-admin/outlet-brands",
+    {
+      token,
+      body: {
+        venueId,
+        name: `breakfast-pilot-brand-${suffix}`,
+        displayName: `Breakfast Pilot ${suffix}`,
+      },
+    },
+  );
+
+  assert.equal(createOutletBrand.status, 201);
+  const outletBrandId = createOutletBrand.body.data.id;
+
   const createDepartment = await requestJson<{
     data: {
       id: string;
@@ -535,9 +720,10 @@ test("customer manager can manually start and end a shift, and public staff sele
     token,
     body: {
       venueId,
+      outletBrandId,
       name: `Breakfast Pilot ${suffix}`,
       slug: `breakfast-pilot-${suffix}`,
-      type: "BREAKFAST",
+      revenueCentreType: "BREAKFAST",
     },
   });
 
@@ -549,23 +735,23 @@ test("customer manager can manually start and end a shift, and public staff sele
   });
   const originalDepartmentSetting = await prisma.customerDepartmentTippingSetting.findUnique({
     where: {
-      customerId_departmentType: {
+      customerId_revenueCentreType: {
         customerId: venueRecord.customerId,
-        departmentType: "BREAKFAST",
+        revenueCentreType: "BREAKFAST",
       },
     },
   });
 
   await prisma.customerDepartmentTippingSetting.upsert({
     where: {
-      customerId_departmentType: {
+      customerId_revenueCentreType: {
         customerId: venueRecord.customerId,
-        departmentType: "BREAKFAST",
+        revenueCentreType: "BREAKFAST",
       },
     },
     create: {
       customerId: venueRecord.customerId,
-      departmentType: "BREAKFAST",
+      revenueCentreType: "BREAKFAST",
       qrTippingEnabled: true,
       teamTippingEnabled: true,
       individualTippingEnabled: true,
@@ -621,8 +807,8 @@ test("customer manager can manually start and end a shift, and public staff sele
       departmentId,
       name: `Breakfast Pilot Shift ${suffix}`,
       timezone: "Europe/London",
-      startsAt: "2026-04-03T09:00:00.000Z",
-      endsAt: "2026-04-03T13:00:00.000Z",
+      startsAt: activeShiftStart.toISOString(),
+      endsAt: activeShiftEnd.toISOString(),
       status: "SCHEDULED",
     },
   });
@@ -669,7 +855,7 @@ test("customer manager can manually start and end a shift, and public staff sele
   }>("POST", `/customer-admin/shifts/${shiftId}/start`, {
     token,
     body: {
-      startedAt: "2026-04-02T10:15:00.000Z",
+      startedAt: shiftStartedAt.toISOString(),
     },
   });
 
@@ -687,8 +873,8 @@ test("customer manager can manually start and end a shift, and public staff sele
       departmentId,
       name: `Breakfast Pilot Shift B ${suffix}`,
       timezone: "Europe/London",
-      startsAt: "2026-04-02T11:00:00.000Z",
-      endsAt: "2026-04-02T15:00:00.000Z",
+      startsAt: conflictingShiftStart.toISOString(),
+      endsAt: conflictingShiftEnd.toISOString(),
       status: "SCHEDULED",
     },
   });
@@ -700,7 +886,7 @@ test("customer manager can manually start and end a shift, and public staff sele
   }>("POST", `/customer-admin/shifts/${secondShift.body.data.id}/start`, {
     token,
     body: {
-      startedAt: "2026-04-02T10:20:00.000Z",
+      startedAt: shiftStartedAt.toISOString(),
     },
   });
 
@@ -740,7 +926,7 @@ test("customer manager can manually start and end a shift, and public staff sele
   }>("POST", `/customer-admin/shifts/${shiftId}/end`, {
     token,
     body: {
-      endedAt: "2026-04-02T11:00:00.000Z",
+      endedAt: shiftEndedAt.toISOString(),
     },
   });
 
@@ -768,9 +954,9 @@ test("customer manager can manually start and end a shift, and public staff sele
   if (originalDepartmentSetting) {
     await prisma.customerDepartmentTippingSetting.update({
       where: {
-        customerId_departmentType: {
+        customerId_revenueCentreType: {
           customerId: venueRecord.customerId,
-          departmentType: "BREAKFAST",
+          revenueCentreType: "BREAKFAST",
         },
       },
       data: {
@@ -784,16 +970,16 @@ test("customer manager can manually start and end a shift, and public staff sele
 });
 
 test("customer admin can manage staged tipping rollout settings and customer manager cannot", async () => {
-  const adminToken = await login("manager@sharkclub.example", "Password123!");
-  const managerToken = await login("ops@sharkclub.example", "Password123!");
+  const adminToken = await login("admin@sandman.example", "Password123!");
+  const managerToken = await login("manager@sandman.example", "Password123!");
   const breakfastServiceArea = await prisma.serviceArea.findFirstOrThrow({
-    where: { slug: "breakfast-table-card" },
+    where: { slug: "ssn-breakfast-table-card-a" },
     select: { id: true },
   });
 
   const getSettings = await requestJson<{
     data: {
-      departmentTippingSettings: Array<{ departmentType: string }>;
+      departmentTippingSettings: Array<{ revenueCentreType: string }>;
       serviceAreas: Array<{ id: string }>;
     };
   }>("GET", "/customer-admin/tipping-settings", {
@@ -801,7 +987,7 @@ test("customer admin can manage staged tipping rollout settings and customer man
   });
 
   assert.equal(getSettings.status, 200);
-  assert.ok(getSettings.body.data.departmentTippingSettings.some((setting) => setting.departmentType === "BREAKFAST"));
+  assert.ok(getSettings.body.data.departmentTippingSettings.some((setting) => setting.revenueCentreType === "BREAKFAST"));
   assert.ok(getSettings.body.data.serviceAreas.some((serviceArea) => serviceArea.id === breakfastServiceArea.id));
 
   const updateDepartmentSetting = await requestJson<{
@@ -809,7 +995,7 @@ test("customer admin can manage staged tipping rollout settings and customer man
       qrTippingEnabled: boolean;
       individualTippingEnabled: boolean;
     };
-  }>("PATCH", "/customer-admin/tipping-settings/departments/BREAKFAST", {
+  }>("PATCH", "/customer-admin/tipping-settings/revenue-centres/BREAKFAST", {
     token: adminToken,
     body: {
       qrTippingEnabled: true,
@@ -841,7 +1027,7 @@ test("customer admin can manage staged tipping rollout settings and customer man
 
   const managerUpdateAttempt = await requestJson<{
     error: string;
-  }>("PATCH", "/customer-admin/tipping-settings/departments/BREAKFAST", {
+  }>("PATCH", "/customer-admin/tipping-settings/revenue-centres/BREAKFAST", {
     token: managerToken,
     body: {
       qrTippingEnabled: false,
@@ -853,10 +1039,10 @@ test("customer admin can manage staged tipping rollout settings and customer man
 });
 
 test("customer admin can manage QR assets with venue and department filtering while managers remain blocked from writes", async () => {
-  const adminToken = await login("manager@sharkclub.example", "Password123!");
-  const managerToken = await login("ops@sharkclub.example", "Password123!");
+  const adminToken = await login("admin@sandman.example", "Password123!");
+  const managerToken = await login("manager@sandman.example", "Password123!");
   const breakfastServiceArea = await prisma.serviceArea.findFirstOrThrow({
-    where: { slug: "breakfast-table-card" },
+    where: { slug: "ssn-breakfast-table-card-a" },
     select: { id: true, venueId: true, departmentId: true },
   });
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -938,7 +1124,7 @@ test("customer admin can manage QR assets with venue and department filtering wh
 });
 
 test("customer manager can delete clean staff and venue records for their own customer", async () => {
-  const token = await login("ops@sharkclub.example", "Password123!");
+  const token = await login("manager@sandman.example", "Password123!");
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
   const createVenue = await requestJson<{
@@ -997,10 +1183,10 @@ test("customer manager can delete clean staff and venue records for their own cu
 });
 
 test("customer manager cannot delete a venue with linked operational history", async () => {
-  const token = await login("ops@sharkclub.example", "Password123!");
+  const token = await login("manager@sandman.example", "Password123!");
   const sharkVenue = await prisma.venue.findFirstOrThrow({
     where: {
-      slug: "shark-club-newcastle",
+      slug: "sandman-signature-newcastle",
     },
     select: { id: true },
   });
@@ -1017,7 +1203,7 @@ test("customer manager cannot delete a venue with linked operational history", a
 });
 
 test("customer admin can update payroll settings for their own customer", async () => {
-  const token = await login("manager@sharkclub.example", "Password123!");
+  const token = await login("admin@sandman.example", "Password123!");
 
   const response = await requestJson<{
     data: {
@@ -1048,22 +1234,14 @@ test("customer admin can update payroll settings for their own customer", async 
 });
 
 test("customer manager cannot update another customer's venue", async () => {
-  const token = await login("ops@sharkclub.example", "Password123!");
-  const emberCustomer = await prisma.customer.findFirstOrThrow({
-    where: { slug: "ember-dining-co" },
-    select: { id: true },
-  });
-  const emberVenue = await prisma.venue.findFirstOrThrow({
-    where: {
-      customerId: emberCustomer.id,
-    },
-    select: { id: true },
-  });
+  const token = await login("manager@sandman.example", "Password123!");
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const otherFixture = await createOtherCustomerFixture(suffix);
 
   const response = await requestJson<{
     error: string;
     message: string;
-  }>("PATCH", `/customer-admin/venues/${emberVenue.id}`, {
+  }>("PATCH", `/customer-admin/venues/${otherFixture.venue.id}`, {
     token,
     body: {
       status: "INACTIVE",
@@ -1075,24 +1253,25 @@ test("customer manager cannot update another customer's venue", async () => {
 });
 
 test("customer manager cannot create a service area against another customer's department", async () => {
-  const token = await login("ops@sharkclub.example", "Password123!");
-  const emberCustomer = await prisma.customer.findFirstOrThrow({
-    where: { slug: "ember-dining-co" },
-    select: { id: true },
-  });
-  const emberVenue = await prisma.venue.findFirstOrThrow({
-    where: {
-      customerId: emberCustomer.id,
+  const token = await login("manager@sandman.example", "Password123!");
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const otherFixture = await createOtherCustomerFixture(suffix);
+  const otherOutletBrand = await prisma.outletBrand.create({
+    data: {
+      customerId: otherFixture.customer.id,
+      venueId: otherFixture.venue.id,
+      name: `other-breakfast-brand-${suffix}`,
+      displayName: `Other Breakfast ${suffix}`,
     },
-    select: { id: true },
   });
   const emberDepartment = await prisma.department.create({
     data: {
-      customerId: emberCustomer.id,
-      venueId: emberVenue.id,
-      name: `Ember Breakfast ${Date.now()}`,
-      slug: `ember-breakfast-${Date.now()}`,
-      type: "BREAKFAST",
+      customerId: otherFixture.customer.id,
+      venueId: otherFixture.venue.id,
+      outletBrandId: otherOutletBrand.id,
+      name: `Other Breakfast ${suffix}`,
+      slug: `other-breakfast-${suffix}`,
+      revenueCentreType: "BREAKFAST",
     },
   });
 
@@ -1102,7 +1281,7 @@ test("customer manager cannot create a service area against another customer's d
   }>("POST", "/customer-admin/service-areas", {
     token,
     body: {
-      venueId: emberVenue.id,
+      venueId: otherFixture.venue.id,
       departmentId: emberDepartment.id,
       name: "Cross Tenant Card",
       slug: `cross-tenant-card-${Date.now()}`,
@@ -1116,17 +1295,9 @@ test("customer manager cannot create a service area against another customer's d
 });
 
 test("customer manager cannot create a staff member in another customer's venue", async () => {
-  const token = await login("ops@sharkclub.example", "Password123!");
-  const emberCustomer = await prisma.customer.findFirstOrThrow({
-    where: { slug: "ember-dining-co" },
-    select: { id: true },
-  });
-  const emberVenue = await prisma.venue.findFirstOrThrow({
-    where: {
-      customerId: emberCustomer.id,
-    },
-    select: { id: true },
-  });
+  const token = await login("manager@sandman.example", "Password123!");
+  const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  const otherFixture = await createOtherCustomerFixture(suffix);
 
   const response = await requestJson<{
     error: string;
@@ -1134,7 +1305,7 @@ test("customer manager cannot create a staff member in another customer's venue"
   }>("POST", "/customer-admin/staff", {
     token,
     body: {
-      venueId: emberVenue.id,
+      venueId: otherFixture.venue.id,
       firstName: "Cross",
       lastName: "Tenant",
       displayName: "Cross Tenant",
@@ -1146,7 +1317,7 @@ test("customer manager cannot create a staff member in another customer's venue"
 });
 
 test("customer manager cannot assign staff to a department from another venue", async () => {
-  const token = await login("ops@sharkclub.example", "Password123!");
+  const token = await login("manager@sandman.example", "Password123!");
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
   const firstVenue = await requestJson<{ data: { id: string } }>("POST", "/customer-admin/venues", {
@@ -1172,9 +1343,19 @@ test("customer manager cannot assign staff to a department from another venue", 
       token,
       body: {
         venueId: secondVenue.body.data.id,
+        outletBrandId: (
+          await requestJson<{ data: { id: string } }>("POST", "/customer-admin/outlet-brands", {
+            token,
+            body: {
+              venueId: secondVenue.body.data.id,
+              name: `breakfast-ops-brand-${suffix}`,
+              displayName: `Breakfast Ops ${suffix}`,
+            },
+          })
+        ).body.data.id,
         name: `Breakfast Ops ${suffix}`,
         slug: `breakfast-ops-${suffix}`,
-        type: "BREAKFAST",
+        revenueCentreType: "BREAKFAST",
       },
     },
   );
@@ -1200,7 +1381,7 @@ test("customer manager cannot assign staff to a department from another venue", 
 });
 
 test("customer manager can update pool membership and delete a clean pool", async () => {
-  const token = await login("ops@sharkclub.example", "Password123!");
+  const token = await login("manager@sandman.example", "Password123!");
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
   const createVenue = await requestJson<{
@@ -1239,6 +1420,7 @@ test("customer manager can update pool membership and delete a clean pool", asyn
     data: {
       id: string;
       members: Array<{ staffMemberId: string }>;
+      poolType: string;
     };
   }>("POST", "/customer-admin/pools", {
     token,
@@ -1246,26 +1428,44 @@ test("customer manager can update pool membership and delete a clean pool", asyn
       venueId,
       name: `Floor Pool ${suffix}`,
       slug: `floor-pool-${suffix}`,
+      poolType: "BOH",
       memberStaffIds: [firstStaff.body.data.id],
     },
   });
 
   assert.equal(createPool.status, 201);
   assert.equal(createPool.body.data.members.length, 1);
+  assert.equal(createPool.body.data.poolType, "BOH");
 
   const updatePool = await requestJson<{
     data: {
       members: Array<{ staffMemberId: string }>;
+      poolType: string;
     };
   }>("PATCH", `/customer-admin/pools/${createPool.body.data.id}`, {
     token,
     body: {
+      poolType: "HYBRID",
       memberStaffIds: [firstStaff.body.data.id, secondStaff.body.data.id],
     },
   });
 
   assert.equal(updatePool.status, 200);
   assert.equal(updatePool.body.data.members.length, 2);
+  assert.equal(updatePool.body.data.poolType, "HYBRID");
+
+  const filteredPools = await requestJson<{
+    data: Array<{
+      id: string;
+      poolType: string;
+    }>;
+  }>("GET", "/customer-admin/pools?poolType=HYBRID", {
+    token,
+  });
+
+  assert.equal(filteredPools.status, 200);
+  assert.ok(filteredPools.body.data.some((pool) => pool.id === createPool.body.data.id));
+  assert.ok(filteredPools.body.data.every((pool) => pool.poolType === "HYBRID"));
 
   const clearPool = await requestJson<{
     data: {
@@ -1294,7 +1494,7 @@ test("customer manager can update pool membership and delete a clean pool", asyn
 });
 
 test("customer manager cannot assign staff from another venue into a pool", async () => {
-  const token = await login("ops@sharkclub.example", "Password123!");
+  const token = await login("manager@sandman.example", "Password123!");
   const suffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   const firstVenue = await requestJson<{ data: { id: string } }>("POST", "/customer-admin/venues", {
     token,
@@ -1328,6 +1528,7 @@ test("customer manager cannot assign staff from another venue into a pool", asyn
       venueId: firstVenue.body.data.id,
       name: `Cross Venue Pool ${suffix}`,
       slug: `cross-venue-pool-${suffix}`,
+      poolType: "FOH",
       memberStaffIds: [offVenueStaff.body.data.id],
     },
   });

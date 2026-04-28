@@ -13,6 +13,12 @@ type PayrollSettingsManagerProps = {
       frequency: "WEEKLY" | "FORTNIGHTLY" | "MONTHLY";
       settlementFrequency: "WEEKLY" | "FORTNIGHTLY" | "MONTHLY";
       payPeriodAnchor: Date | string | null;
+      payrollCalendar: {
+        startDate: Date | string;
+        periodsPerYear: number;
+        periodLengthDays: number;
+        startDayOfWeek: number;
+      } | null;
       settlementDay: number | null;
       exportEmail: string | null;
       notes: string | null;
@@ -25,6 +31,10 @@ type FormState = {
   frequency: "WEEKLY" | "FORTNIGHTLY" | "MONTHLY";
   settlementFrequency: "WEEKLY" | "FORTNIGHTLY" | "MONTHLY";
   payPeriodAnchor: string;
+  payrollCalendarStartDate: string;
+  periodsPerYear: string;
+  periodLengthDays: string;
+  startDayOfWeek: string;
   settlementDay: string;
   exportEmail: string;
   notes: string;
@@ -50,6 +60,10 @@ function createInitialForm(customer: PayrollSettingsManagerProps["customer"]): F
     frequency: customer.payrollConfig?.frequency ?? "WEEKLY",
     settlementFrequency: customer.payrollConfig?.settlementFrequency ?? "WEEKLY",
     payPeriodAnchor: formatDateInput(customer.payrollConfig?.payPeriodAnchor),
+    payrollCalendarStartDate: formatDateInput(customer.payrollConfig?.payrollCalendar?.startDate),
+    periodsPerYear: customer.payrollConfig?.payrollCalendar?.periodsPerYear?.toString() ?? "13",
+    periodLengthDays: customer.payrollConfig?.payrollCalendar?.periodLengthDays?.toString() ?? "28",
+    startDayOfWeek: customer.payrollConfig?.payrollCalendar?.startDayOfWeek?.toString() ?? "1",
     settlementDay: customer.payrollConfig?.settlementDay?.toString() ?? "",
     exportEmail: customer.payrollConfig?.exportEmail ?? "",
     notes: customer.payrollConfig?.notes ?? "",
@@ -102,6 +116,10 @@ export function CustomerPayrollSettingsManager({
             frequency: form.frequency,
             settlementFrequency: form.settlementFrequency,
             payPeriodAnchor: form.payPeriodAnchor || undefined,
+            payrollCalendarStartDate: form.payrollCalendarStartDate || undefined,
+            periodsPerYear: form.periodsPerYear ? Number(form.periodsPerYear) : undefined,
+            periodLengthDays: form.periodLengthDays ? Number(form.periodLengthDays) : undefined,
+            startDayOfWeek: form.startDayOfWeek ? Number(form.startDayOfWeek) : undefined,
             settlementDay: form.settlementDay ? Number(form.settlementDay) : undefined,
             exportEmail: form.exportEmail.trim() || undefined,
             notes: form.notes.trim() || undefined,
@@ -180,6 +198,61 @@ export function CustomerPayrollSettingsManager({
           </label>
 
           <label className="block">
+            <FieldLabel>Calendar start date</FieldLabel>
+            <input
+              type="date"
+              value={form.payrollCalendarStartDate}
+              onChange={(event) => updateField("payrollCalendarStartDate", event.target.value)}
+              disabled={!canManage || isPending}
+              className="mt-2 w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+            />
+          </label>
+
+          <label className="block">
+            <FieldLabel>Periods per year</FieldLabel>
+            <input
+              type="number"
+              min="1"
+              max="366"
+              value={form.periodsPerYear}
+              onChange={(event) => updateField("periodsPerYear", event.target.value)}
+              disabled={!canManage || isPending}
+              className="mt-2 w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+            />
+          </label>
+
+          <label className="block">
+            <FieldLabel>Days per period</FieldLabel>
+            <input
+              type="number"
+              min="1"
+              max="366"
+              value={form.periodLengthDays}
+              onChange={(event) => updateField("periodLengthDays", event.target.value)}
+              disabled={!canManage || isPending}
+              className="mt-2 w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+            />
+          </label>
+
+          <label className="block">
+            <FieldLabel>Start day of week</FieldLabel>
+            <select
+              value={form.startDayOfWeek}
+              onChange={(event) => updateField("startDayOfWeek", event.target.value)}
+              disabled={!canManage || isPending}
+              className="mt-2 w-full rounded-2xl border px-4 py-3 text-sm outline-none"
+            >
+              <option value="0">Sunday</option>
+              <option value="1">Monday</option>
+              <option value="2">Tuesday</option>
+              <option value="3">Wednesday</option>
+              <option value="4">Thursday</option>
+              <option value="5">Friday</option>
+              <option value="6">Saturday</option>
+            </select>
+          </label>
+
+          <label className="block">
             <FieldLabel>Settlement day</FieldLabel>
             <input
               type="number"
@@ -231,7 +304,7 @@ export function CustomerPayrollSettingsManager({
               onChange={(event) => updateField("notes", event.target.value)}
               disabled={!canManage || isPending}
               rows={4}
-              className="mt-2 w-full rounded-2xl border border-[#4a4a4a] bg-[#0b0b0b] px-4 py-3 text-sm text-white outline-none"
+              className="mt-2 w-full rounded-2xl border px-4 py-3 text-sm outline-none"
             />
           </label>
         </div>
@@ -252,7 +325,7 @@ export function CustomerPayrollSettingsManager({
 
       <article className="rounded-[1.8rem] border border-[#d9c8b8] bg-[rgba(255,251,246,0.84)] p-6 shadow-[0_24px_60px_rgba(96,71,49,0.10)]">
         <p className="text-xs uppercase tracking-[0.26em] text-[#8d8d8d]">Permissions</p>
-        <h2 className="mt-2 text-2xl text-white">What your role can do</h2>
+        <h2 className="mt-2 text-2xl text-[#43362f]">What your role can do</h2>
         <div className="mt-6 grid gap-3">
           {[
             "TIPIT_ADMIN can manage platform-wide customer settings.",

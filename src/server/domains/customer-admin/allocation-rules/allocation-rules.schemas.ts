@@ -24,3 +24,33 @@ export const createAllocationRuleSchema = z.object({
 });
 
 export const updateAllocationRuleSchema = createAllocationRuleSchema.partial();
+
+export const listAllocationRuleTemplatesQuerySchema = z.object({
+  recommendedOnly: z.coerce.boolean().optional(),
+  scope: z.enum(["VENUE_DEFAULT", "DEPARTMENT", "SERVICE_AREA"]).optional(),
+  selectionType: z.enum(["TEAM", "INDIVIDUAL"]).optional(),
+});
+
+export const createAllocationRuleFromTemplateSchema = z.object({
+  templateId: z.string().min(1),
+  venueId: z.string().min(1),
+  departmentId: z.string().min(1).optional(),
+  serviceAreaId: z.string().min(1).optional(),
+  scope: z.enum(["VENUE_DEFAULT", "DEPARTMENT", "SERVICE_AREA"]).optional(),
+  selectionType: z.enum(["TEAM", "INDIVIDUAL"]).optional(),
+  name: z.string().min(2).optional(),
+  description: z.string().optional(),
+  priority: z.number().int().optional(),
+  isActive: z.boolean().optional(),
+  effectiveFrom: z.coerce.date().optional(),
+  effectiveTo: z.coerce.date().optional(),
+  lineRecipients: z
+    .array(
+      z.object({
+        sortOrder: z.number().int(),
+        staffMemberId: z.string().optional(),
+        poolId: z.string().optional(),
+      }),
+    )
+    .default([]),
+});

@@ -1,13 +1,7 @@
 import { z } from "zod";
+import { revenueCentreTypes } from "../../../../lib/revenue-centres";
 
-const departmentTypeSchema = z.enum([
-  "MEETING_EVENTS",
-  "BREAKFAST",
-  "ROOM_SERVICE",
-  "BAR",
-  "RESTAURANT",
-  "OTHER",
-]);
+const revenueCentreTypeSchema = z.enum(revenueCentreTypes);
 
 const tippingModeSchema = z.enum([
   "TEAM_ONLY",
@@ -29,8 +23,8 @@ export const updateServiceAreaTippingSettingSchema = z.object({
   individualTippingEnabled: z.boolean().optional(),
 });
 
-export const departmentTypeParamSchema = z.object({
-  departmentType: departmentTypeSchema,
+export const revenueCentreTypeParamSchema = z.object({
+  revenueCentreType: revenueCentreTypeSchema,
 });
 
-export type DepartmentTypeParam = z.infer<typeof departmentTypeParamSchema>;
+export type RevenueCentreTypeParam = z.infer<typeof revenueCentreTypeParamSchema>;

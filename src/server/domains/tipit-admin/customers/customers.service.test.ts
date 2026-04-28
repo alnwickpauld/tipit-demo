@@ -53,6 +53,15 @@ test("create customer stores fee percent as basis points and creates payroll con
         return {};
       },
     },
+    payrollCalendar: {
+      upsert: async ({ data, create, update, where }: { data?: unknown; create?: unknown; update?: unknown; where?: unknown }) => {
+        calls.push({
+          step: "tx.payrollCalendar.upsert",
+          data: data ?? { create, update, where },
+        });
+        return { id: "calendar-1" };
+      },
+    },
     $transaction: async (callback: (tx: unknown) => Promise<string>) =>
       callback({
         customer: {
@@ -65,6 +74,19 @@ test("create customer stores fee percent as basis points and creates payroll con
           create: async ({ data }: { data: unknown }) => {
             calls.push({ step: "tx.payrollConfig.create", data });
             return {};
+          },
+          updateMany: async ({ data }: { data: unknown }) => {
+            calls.push({ step: "tx.payrollConfig.updateMany", data });
+            return { count: 1 };
+          },
+        },
+        payrollCalendar: {
+          upsert: async ({ create, update, where }: { create: unknown; update: unknown; where: unknown }) => {
+            calls.push({
+              step: "tx.payrollCalendar.upsert",
+              data: { create, update, where },
+            });
+            return { id: "calendar-1" };
           },
         },
       }),
@@ -101,12 +123,42 @@ test("create customer stores fee percent as basis points and creates payroll con
       },
     },
     {
+      step: "tx.payrollCalendar.upsert",
+      data: {
+        where: {
+          customerId: "customer-1",
+        },
+        create: {
+          customerId: "customer-1",
+          startDate: new Date("2026-01-05T00:00:00.000Z"),
+          startDayOfWeek: 1,
+          periodsPerYear: 52,
+          periodLengthDays: 7,
+          timezone: "Europe/London",
+        },
+        update: {
+          startDate: new Date("2026-01-05T00:00:00.000Z"),
+          startDayOfWeek: 1,
+          periodsPerYear: 52,
+          periodLengthDays: 7,
+          timezone: "Europe/London",
+        },
+      },
+    },
+    {
+      step: "tx.payrollConfig.updateMany",
+      data: {
+        payrollCalendarId: "calendar-1",
+      },
+    },
+    {
       step: "tx.payrollConfig.create",
       data: {
         customerId: "customer-1",
         frequency: "WEEKLY",
         payPeriodAnchor: new Date("2026-01-05T00:00:00.000Z"),
         settlementFrequency: "WEEKLY",
+        payrollCalendarId: "calendar-1",
       },
     },
   ]);

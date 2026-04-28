@@ -11,6 +11,58 @@ import {
 } from "./public-tip-links";
 import { shiftEligibilityService } from "./shift-eligibility";
 
+type VenueBranding = {
+  name: string;
+  slug: string;
+  city: string | null;
+  brandBackgroundColor: string;
+  brandTextColor: string;
+  brandButtonColor: string;
+  brandButtonTextColor: string;
+  brandLogoImageUrl: string | null;
+};
+
+type OutletBranding = {
+  id: string;
+  name: string;
+  displayName: string;
+  logoUrl: string | null;
+} | null;
+
+type ServiceAreaTipScreenOverrides = {
+  tipScreenBackgroundColor: string | null;
+  tipScreenTextColor: string | null;
+  tipScreenButtonColor: string | null;
+  tipScreenButtonTextColor: string | null;
+  tipScreenLogoImageUrl: string | null;
+} | null;
+
+function resolveBrandPresentation(input: {
+  customerName: string;
+  venue: VenueBranding;
+  outletBrand?: OutletBranding;
+  serviceAreaOverrides?: ServiceAreaTipScreenOverrides;
+}) {
+  const brandDisplayName = input.outletBrand?.displayName ?? input.customerName;
+
+  return {
+    outletBrandId: input.outletBrand?.id ?? null,
+    brandDisplayName,
+    venueBrandName: brandDisplayName,
+    venueLocation: input.venue.city ?? input.venue.name,
+    brandBackgroundColor:
+      input.serviceAreaOverrides?.tipScreenBackgroundColor ?? input.venue.brandBackgroundColor,
+    brandTextColor:
+      input.serviceAreaOverrides?.tipScreenTextColor ?? input.venue.brandTextColor,
+    brandButtonColor:
+      input.serviceAreaOverrides?.tipScreenButtonColor ?? input.venue.brandButtonColor,
+    brandButtonTextColor:
+      input.serviceAreaOverrides?.tipScreenButtonTextColor ?? input.venue.brandButtonTextColor,
+    brandLogoImageUrl:
+      input.serviceAreaOverrides?.tipScreenLogoImageUrl ?? input.venue.brandLogoImageUrl,
+  };
+}
+
 function buildStaffDestination(
   staffMember: {
     id: string;
@@ -34,6 +86,10 @@ function buildStaffDestination(
   slug: string,
 ): PublicTipPageData {
   const employeeName = staffMember.displayName ?? `${staffMember.firstName} ${staffMember.lastName}`;
+  const brandPresentation = resolveBrandPresentation({
+    customerName: staffMember.customer.name,
+    venue: staffMember.venue,
+  });
 
   return {
     qrCodeId: `staff-${staffMember.id}`,
@@ -53,13 +109,7 @@ function buildStaffDestination(
     heading: `Tip ${employeeName}`,
     subheading: `Securely send a thank-you to ${employeeName} at ${staffMember.venue.name}.`,
     targetName: employeeName,
-    venueBrandName: staffMember.customer.name,
-    venueLocation: staffMember.venue.city ?? staffMember.venue.name,
-    brandBackgroundColor: staffMember.venue.brandBackgroundColor,
-    brandTextColor: staffMember.venue.brandTextColor,
-    brandButtonColor: staffMember.venue.brandButtonColor,
-    brandButtonTextColor: staffMember.venue.brandButtonTextColor,
-    brandLogoImageUrl: staffMember.venue.brandLogoImageUrl,
+    ...brandPresentation,
     serviceAreaJourney: null,
   };
 }
@@ -84,6 +134,11 @@ function buildPoolDestination(
   },
   slug: string,
 ): PublicTipPageData {
+  const brandPresentation = resolveBrandPresentation({
+    customerName: pool.customer.name,
+    venue: pool.venue,
+  });
+
   return {
     qrCodeId: `pool-${pool.id}`,
     slug,
@@ -102,13 +157,7 @@ function buildPoolDestination(
     heading: `Tip the ${pool.name}`,
     subheading: `Your tip will be shared across the active ${pool.name.toLowerCase()}.`,
     targetName: pool.name,
-    venueBrandName: pool.customer.name,
-    venueLocation: pool.venue.city ?? pool.venue.name,
-    brandBackgroundColor: pool.venue.brandBackgroundColor,
-    brandTextColor: pool.venue.brandTextColor,
-    brandButtonColor: pool.venue.brandButtonColor,
-    brandButtonTextColor: pool.venue.brandButtonTextColor,
-    brandLogoImageUrl: pool.venue.brandLogoImageUrl,
+    ...brandPresentation,
     serviceAreaJourney: null,
   };
 }
@@ -129,6 +178,11 @@ function buildVenueDestination(
   },
   slug: string,
 ): PublicTipPageData {
+  const brandPresentation = resolveBrandPresentation({
+    customerName: venue.customer.name,
+    venue,
+  });
+
   return {
     qrCodeId: `venue-${venue.id}`,
     slug,
@@ -147,13 +201,7 @@ function buildVenueDestination(
     heading: `Tip the team at ${venue.name}`,
     subheading: "Support the service team with a secure digital tip.",
     targetName: venue.name,
-    venueBrandName: venue.customer.name,
-    venueLocation: venue.city ?? venue.name,
-    brandBackgroundColor: venue.brandBackgroundColor,
-    brandTextColor: venue.brandTextColor,
-    brandButtonColor: venue.brandButtonColor,
-    brandButtonTextColor: venue.brandButtonTextColor,
-    brandLogoImageUrl: venue.brandLogoImageUrl,
+    ...brandPresentation,
     serviceAreaJourney: null,
   };
 }
@@ -164,6 +212,11 @@ function buildServiceAreaDestination(
     customerId: string;
     venueId: string;
     name: string;
+    tipScreenBackgroundColor: string | null;
+    tipScreenTextColor: string | null;
+    tipScreenButtonColor: string | null;
+    tipScreenButtonTextColor: string | null;
+    tipScreenLogoImageUrl: string | null;
     tippingMode: string;
     displayMode: string;
     noActiveShiftBehavior: "DISABLE_INDIVIDUAL" | "FALLBACK_TO_TEAM";
@@ -180,7 +233,8 @@ function buildServiceAreaDestination(
     };
     department: {
       name: string;
-      type?: string;
+      revenueCentreType?: string;
+      outletBrand?: OutletBranding;
     };
   },
   resolvedConfig: {
@@ -219,6 +273,18 @@ function buildServiceAreaDestination(
     serviceArea.department.name === "Room Service"
       ? "Tip today's Room Service Team"
       : `Tip the ${departmentLabel} Team`;
+  const brandPresentation = resolveBrandPresentation({
+    customerName: serviceArea.customer.name,
+    venue: serviceArea.venue,
+    outletBrand: serviceArea.department.outletBrand ?? null,
+    serviceAreaOverrides: {
+      tipScreenBackgroundColor: serviceArea.tipScreenBackgroundColor,
+      tipScreenTextColor: serviceArea.tipScreenTextColor,
+      tipScreenButtonColor: serviceArea.tipScreenButtonColor,
+      tipScreenButtonTextColor: serviceArea.tipScreenButtonTextColor,
+      tipScreenLogoImageUrl: serviceArea.tipScreenLogoImageUrl,
+    },
+  });
 
   return {
     qrCodeId: `service-area-${serviceArea.id}`,
@@ -238,17 +304,17 @@ function buildServiceAreaDestination(
     heading: serviceHeading,
     subheading: `Support ${serviceArea.department.name.toLowerCase()} service at ${serviceArea.name}.`,
     targetName: teamName,
-    venueBrandName: serviceArea.customer.name,
-    venueLocation: serviceArea.venue.city ?? serviceArea.venue.name,
-    brandBackgroundColor: serviceArea.venue.brandBackgroundColor,
-    brandTextColor: serviceArea.venue.brandTextColor,
-    brandButtonColor: serviceArea.venue.brandButtonColor,
-    brandButtonTextColor: serviceArea.venue.brandButtonTextColor,
-    brandLogoImageUrl: serviceArea.venue.brandLogoImageUrl,
+    ...brandPresentation,
     serviceAreaJourney: {
       serviceAreaId: serviceArea.id,
       serviceAreaName: serviceArea.name,
       departmentName: serviceArea.department.name,
+      revenueCentreType: serviceArea.department.revenueCentreType as
+        | "RESTAURANT"
+        | "BAR"
+        | "MEETINGS_EVENTS"
+        | "BREAKFAST"
+        | "ROOM_SERVICE",
       tippingMode: finalTippingMode,
       displayMode: serviceArea.displayMode as
         | "FIXED_SIGN"
@@ -281,7 +347,11 @@ export async function resolvePublicTipDestinationBySlug(
           include: {
             customer: true,
             venue: true,
-            department: true,
+            department: {
+              include: {
+                outletBrand: true,
+              },
+            },
           },
         },
         staffMember: {
@@ -298,9 +368,9 @@ export async function resolvePublicTipDestinationBySlug(
         if (qrAsset.department) {
           const departmentSetting = await prisma.customerDepartmentTippingSetting.findUnique({
             where: {
-              customerId_departmentType: {
+              customerId_revenueCentreType: {
                 customerId: qrAsset.customerId,
-                departmentType: qrAsset.department.type,
+                revenueCentreType: qrAsset.department.revenueCentreType,
               },
             },
             select: {
@@ -322,9 +392,9 @@ export async function resolvePublicTipDestinationBySlug(
       if ((qrAsset.destinationType === "SERVICE_AREA" || qrAsset.destinationType === "TEAM") && qrAsset.serviceArea) {
         const departmentSetting = await prisma.customerDepartmentTippingSetting.findUnique({
           where: {
-            customerId_departmentType: {
+            customerId_revenueCentreType: {
               customerId: qrAsset.customerId,
-              departmentType: qrAsset.serviceArea.department.type,
+              revenueCentreType: qrAsset.serviceArea.department.revenueCentreType,
             },
           },
           select: {
@@ -427,16 +497,20 @@ export async function resolvePublicTipDestinationBySlug(
         include: {
           customer: true,
           venue: true,
-          department: true,
+          department: {
+            include: {
+              outletBrand: true,
+            },
+          },
         },
       });
 
       if (serviceArea) {
         const departmentSetting = await prisma.customerDepartmentTippingSetting.findUnique({
           where: {
-            customerId_departmentType: {
+            customerId_revenueCentreType: {
               customerId: serviceArea.customerId,
-              departmentType: serviceArea.department.type,
+              revenueCentreType: serviceArea.department.revenueCentreType,
             },
           },
           select: {
@@ -477,6 +551,67 @@ export async function resolvePublicTipDestinationBySlug(
       }
     }
 
+    const directServiceArea = await prisma.serviceArea.findFirst({
+      where: {
+        slug,
+        isActive: true,
+      },
+      include: {
+        customer: true,
+        venue: true,
+        department: {
+          include: {
+            outletBrand: true,
+          },
+        },
+      },
+    });
+
+    if (directServiceArea) {
+      const departmentSetting = await prisma.customerDepartmentTippingSetting.findUnique({
+        where: {
+          customerId_revenueCentreType: {
+            customerId: directServiceArea.customerId,
+            revenueCentreType: directServiceArea.department.revenueCentreType,
+          },
+        },
+        select: {
+          qrTippingEnabled: true,
+          teamTippingEnabled: true,
+          individualTippingEnabled: true,
+          shiftSelectorEnabled: true,
+        },
+      });
+
+      const resolvedConfig = resolveServiceAreaTippingConfig(
+        departmentSetting ?? {
+          qrTippingEnabled: false,
+          teamTippingEnabled: false,
+          individualTippingEnabled: false,
+          shiftSelectorEnabled: false,
+        },
+        {
+          tippingMode: directServiceArea.tippingMode,
+          teamTippingEnabled: directServiceArea.teamTippingEnabled,
+          individualTippingEnabled: directServiceArea.individualTippingEnabled,
+        },
+      );
+
+      if (!resolvedConfig.enabled) {
+        return null;
+      }
+
+      const eligibility = await shiftEligibilityService.getActiveShiftStaffByServiceArea({
+        serviceAreaId: directServiceArea.id,
+        venueId: directServiceArea.venueId,
+        departmentId: directServiceArea.departmentId,
+        tippingMode: resolvedConfig.effectiveTippingMode,
+        noActiveShiftBehavior: directServiceArea.noActiveShiftBehavior,
+      });
+
+      return buildServiceAreaDestination(directServiceArea, resolvedConfig, eligibility, slug);
+    }
+
     // Preserve the original seeded demo links so previously shared examples keep working.
     const venue = await prisma.venue.findFirst({
       where: { slug: "shark-club-newcastle" },
@@ -509,7 +644,11 @@ export async function resolvePublicTipDestinationBySlug(
         serviceAreas: {
           where: { isActive: true },
           include: {
-            department: true,
+            department: {
+              include: {
+                outletBrand: true,
+              },
+            },
           },
           orderBy: { name: "asc" },
         },
@@ -573,9 +712,9 @@ export async function resolvePublicTipDestinationBySlug(
     if (slug === "breakfast-table-card" && demoServiceArea) {
       const departmentSetting = await prisma.customerDepartmentTippingSetting.findUnique({
         where: {
-          customerId_departmentType: {
+          customerId_revenueCentreType: {
             customerId: demoServiceArea.customerId,
-            departmentType: demoServiceArea.department.type,
+            revenueCentreType: demoServiceArea.department.revenueCentreType,
           },
         },
         select: {

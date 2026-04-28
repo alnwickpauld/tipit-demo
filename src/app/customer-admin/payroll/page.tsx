@@ -9,7 +9,11 @@ export default async function CustomerPayrollPage() {
   const customer = await prisma.customer.findUniqueOrThrow({
     where: { id: user.customerId! },
     include: {
-      payrollConfig: true,
+      payrollConfig: {
+        include: {
+          payrollCalendar: true,
+        },
+      },
     },
   });
 

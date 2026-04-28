@@ -35,13 +35,12 @@ enum VenueType {
   OTHER
 }
 
-enum DepartmentType {
-  MEETING_EVENTS
+enum RevenueCentreType {
+  RESTAURANT
+  BAR
+  MEETINGS_EVENTS
   BREAKFAST
   ROOM_SERVICE
-  BAR
-  RESTAURANT
-  OTHER
 }
 
 enum TippingMode {
@@ -75,6 +74,12 @@ enum PoolStatus {
   INACTIVE
 }
 
+enum PoolType {
+  FOH
+  BOH
+  HYBRID
+}
+
 enum AllocationRecipientType {
   STAFF
   POOL
@@ -90,6 +95,12 @@ enum AllocationRuleScope {
   VENUE_DEFAULT
   DEPARTMENT
   SERVICE_AREA
+}
+
+enum TipOutRuleScope {
+  CUSTOMER
+  VENUE
+  DEPARTMENT
 }
 
 enum QrDestinationType {
@@ -116,6 +127,13 @@ enum TipTransactionStatus {
   SUCCEEDED
   FAILED
   REFUNDED
+}
+
+enum ReviewIntegrationStatus {
+  NOT_REQUESTED
+  ELIGIBLE
+  PROMPTED
+  COMPLETED
 }
 
 enum SettlementFrequency {
@@ -152,6 +170,24 @@ enum PayrollExportBatchStatus {
   EXPORTED
   FAILED
   CANCELLED
+}
+
+enum PoolHoursEntrySource {
+  MANUAL
+  CSV_IMPORT
+  INTEGRATION
+}
+
+enum PoolHoursEntryStatus {
+  DRAFT
+  LOCKED
+}
+
+enum PoolDistributionRunStatus {
+  DRAFT
+  READY_FOR_REVIEW
+  LOCKED
+  EXPORTED
 }
 
 model Role {
@@ -197,6 +233,7 @@ model Customer {
   currency       String          @default("GBP")
   timezone       String          @default("Europe/London")
   venues         Venue[]
+  outletBrands   OutletBrand[]
   departments    Department[]
   departmentTippingSettings CustomerDepartmentTippingSetting[]
   departmentStaffAssignments DepartmentStaffAssignment[]
@@ -209,10 +246,16 @@ model Customer {
   importedServiceCharges ImportedServiceCharge[]
   payrollExportBatches PayrollExportBatch[]
   payrollPeriods PayrollPeriod[]
+  poolHoursEntries PoolHoursEntry[]
+  poolDistributionRuns PoolDistributionRun[]
+  poolDistributionAllocations PoolDistributionAllocation[]
   tipTransactions TipTransaction[]
   allocationResults AllocationResult[]
+  tipOutRules    TipOutRule[]
+  tipOutPostings TipOutPosting[]
   customerUsers  CustomerUser[]
   payrollConfig  PayrollConfig?
+  payrollCalendar PayrollCalendar?
   auditLogs      AuditLog[]
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
@@ -265,6 +308,7 @@ model Venue {
   brandButtonTextColor String      @default("#FFFFFF")
   brandLogoImageUrl    String?
   customer        Customer         @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  outletBrands    OutletBrand[]
   departments     Department[]
   departmentStaffAssignments DepartmentStaffAssignment[]
   shifts          Shift[]
@@ -273,9 +317,14 @@ model Venue {
   importedHoursWorked ImportedHoursWorked[]
   importedServiceCharges ImportedServiceCharge[]
   payrollExportBatches PayrollExportBatch[]
+  poolHoursEntries PoolHoursEntry[]
+  poolDistributionRuns PoolDistributionRun[]
+  poolDistributionAllocations PoolDistributionAllocation[]
   staffMembers    StaffMember[]
   pools           Pool[]
   allocationRules AllocationRule[]
+  tipOutRules     TipOutRule[]
+  tipOutPostings  TipOutPosting[]
   tipTransactions TipTransaction[]  @relation("VenueTipTransactions")
   destinationTipTransactions TipTransaction[] @relation("TipDestinationVenue")
   allocationResults AllocationResult[]
@@ -291,19 +340,39 @@ model Venue {
   @@index([externalSystemProvider, externalSystemRef])
 }
 
+model OutletBrand {
+  id            String     @id @default(cuid())
+  customerId    String
+  venueId       String
+  name          String
+  displayName   String
+  logoUrl       String?
+  customer      Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue         Venue      @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  departments   Department[]
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@unique([venueId, name])
+  @@index([customerId, venueId])
+  @@index([venueId, displayName])
+}
+
 model Department {
   id            String         @id @default(cuid())
   customerId    String
   venueId       String
+  outletBrandId String
   name          String
   slug          String
-  type          DepartmentType @default(OTHER)
+  revenueCentreType RevenueCentreType @default(RESTAURANT)
   description   String?
   externalSystemRef String?
   externalSystemProvider IntegrationProvider?
   isActive      Boolean        @default(true)
   customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
   venue         Venue          @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  outletBrand   OutletBrand    @relation(fields: [outletBrandId], references: [id], onDelete: Restrict)
   staffAssignments DepartmentStaffAssignment[]
   shifts        Shift[]
   serviceAreas  ServiceArea[]
@@ -311,12 +380,15 @@ model Department {
   importedHoursWorked ImportedHoursWorked[]
   importedServiceCharges ImportedServiceCharge[]
   allocationRules AllocationRule[]
+  tipOutRules   TipOutRule[]
+  tipOutPostings TipOutPosting[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 
   @@unique([venueId, slug])
   @@index([customerId, venueId])
-  @@index([venueId, type, isActive])
+  @@index([outletBrandId])
+  @@index([venueId, revenueCentreType, isActive])
   @@index([venueId, name])
   @@index([externalSystemProvider, externalSystemRef])
 }
@@ -329,6 +401,11 @@ model ServiceArea {
   name                    String
   slug                    String
   description             String?
+  tipScreenBackgroundColor String?
+  tipScreenTextColor       String?
+  tipScreenButtonColor     String?
+  tipScreenButtonTextColor String?
+  tipScreenLogoImageUrl    String?
   tippingMode             TippingMode
   displayMode             DisplayMode
   noActiveShiftBehavior   NoActiveShiftBehavior @default(FALLBACK_TO_TEAM)
@@ -355,7 +432,7 @@ model ServiceArea {
 model CustomerDepartmentTippingSetting {
   id                     String         @id @default(cuid())
   customerId             String
-  departmentType         DepartmentType
+  revenueCentreType      RevenueCentreType
   qrTippingEnabled       Boolean        @default(false)
   teamTippingEnabled     Boolean        @default(true)
   individualTippingEnabled Boolean      @default(false)
@@ -364,7 +441,7 @@ model CustomerDepartmentTippingSetting {
   createdAt              DateTime       @default(now())
   updatedAt              DateTime       @updatedAt
 
-  @@unique([customerId, departmentType])
+  @@unique([customerId, revenueCentreType])
   @@index([customerId, qrTippingEnabled])
 }
 
@@ -390,10 +467,14 @@ model StaffMember {
   shiftAssignments      ShiftStaffAssignment[]
   qrAssets              QrAsset[]
   poolMemberships    PoolMember[]
+  poolHoursEntries   PoolHoursEntry[]
+  poolDistributionAllocations PoolDistributionAllocation[]
   importedHoursWorked ImportedHoursWorked[]
+  importedServiceCharges ImportedServiceCharge[]
   payrollExportLines PayrollExportLine[]
   allocationLines    AllocationRuleLine[] @relation("AllocationLineStaffRecipient")
   allocationResults  AllocationResult[]
+  tipOutPostings     TipOutPosting[]
   destinationTipTransactions TipTransaction[] @relation("TipDestinationEmployee")
   auditLogs          AuditLog[]             @relation("AuditStaffMember")
   createdAt          DateTime             @default(now())
@@ -505,12 +586,18 @@ model Pool {
   name               String
   slug               String
   description        String?
+  poolType           PoolType             @default(HYBRID)
   status             PoolStatus           @default(ACTIVE)
   venue              Venue                @relation(fields: [venueId], references: [id], onDelete: Cascade)
   customer           Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
   members            PoolMember[]
+  hoursEntries       PoolHoursEntry[]
+  distributionRuns   PoolDistributionRun[]
+  distributionAllocations PoolDistributionAllocation[]
   allocationLines    AllocationRuleLine[] @relation("AllocationLinePoolRecipient")
   allocationResults  AllocationResult[]
+  tipOutRules        TipOutRule[]
+  tipOutPostings     TipOutPosting[]
   destinationTipTransactions TipTransaction[] @relation("TipDestinationPool")
   auditLogs          AuditLog[]             @relation("AuditPool")
   createdAt          DateTime             @default(now())
@@ -518,7 +605,9 @@ model Pool {
 
   @@unique([venueId, slug])
   @@index([customerId, status])
+  @@index([customerId, poolType, status])
   @@index([venueId, status])
+  @@index([venueId, poolType, status])
 }
 
 model PoolMember {
@@ -544,6 +633,7 @@ model AllocationRule {
   venueId         String
   departmentId    String?
   serviceAreaId   String?
+  templateId      String?
   scope           AllocationRuleScope  @default(VENUE_DEFAULT)
   selectionType   TipSelectionType?
   name            String
@@ -555,6 +645,7 @@ model AllocationRule {
   venue           Venue                @relation(fields: [venueId], references: [id], onDelete: Cascade)
   department      Department?          @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   serviceArea     ServiceArea?         @relation(fields: [serviceAreaId], references: [id], onDelete: SetNull)
+  template        AllocationRuleTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   lines           AllocationRuleLine[]
   auditLogs       AuditLog[]          @relation("AuditAllocationRule")
   createdAt       DateTime             @default(now())
@@ -562,10 +653,45 @@ model AllocationRule {
 
   /// The application layer should ensure only one active rule wins for a given destination and date window.
   @@index([venueId, isActive, priority])
+  @@index([templateId])
   @@index([serviceAreaId, selectionType, isActive, priority])
   @@index([departmentId, selectionType, isActive, priority])
   @@index([venueId, effectiveFrom, effectiveTo])
   @@index([name])
+}
+
+model AllocationRuleTemplate {
+  id            String               @id @default(cuid())
+  slug          String               @unique
+  name          String
+  description   String?
+  scope         AllocationRuleScope  @default(VENUE_DEFAULT)
+  selectionType TipSelectionType?
+  priority      Int                  @default(100)
+  isActive      Boolean              @default(true)
+  isRecommended Boolean              @default(true)
+  lines         AllocationRuleTemplateLine[]
+  rules         AllocationRule[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@index([isActive, isRecommended])
+  @@index([scope, selectionType])
+  @@index([name])
+}
+
+model AllocationRuleTemplateLine {
+  id                         String                   @id @default(cuid())
+  allocationRuleTemplateId   String
+  recipientType              AllocationRecipientType
+  percentageBps              Int
+  sortOrder                  Int                      @default(0)
+  allocationRuleTemplate     AllocationRuleTemplate   @relation(fields: [allocationRuleTemplateId], references: [id], onDelete: Cascade)
+  createdAt                  DateTime                 @default(now())
+  updatedAt                  DateTime                 @updatedAt
+
+  @@index([allocationRuleTemplateId, sortOrder])
+  @@index([recipientType])
 }
 
 model AllocationRuleLine {
@@ -598,7 +724,9 @@ model PayrollConfig {
   settlementDay      Int?
   exportEmail        String?
   notes              String?
+  payrollCalendarId  String?
   customer           Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  payrollCalendar    PayrollCalendar?  @relation(fields: [payrollCalendarId], references: [id], onDelete: SetNull)
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
 
@@ -606,26 +734,136 @@ model PayrollConfig {
   @@index([frequency])
 }
 
+model PayrollCalendar {
+  id              String          @id @default(cuid())
+  customerId      String          @unique
+  startDate       DateTime
+  startDayOfWeek  Int
+  periodsPerYear  Int             @default(13)
+  periodLengthDays Int            @default(28)
+  timezone        String          @default("Europe/London")
+  customer        Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  payrollConfigs  PayrollConfig[]
+  payrollPeriods  PayrollPeriod[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@index([startDate])
+  @@index([customerId, startDate])
+}
+
 model PayrollPeriod {
   id                String            @id @default(cuid())
   customerId        String
+  payrollCalendarId String?
   externalSystemRef String?
   externalSystemProvider IntegrationProvider?
   frequency         PayrollFrequency
   label             String?
+  year              Int
+  periodNumber      Int
+  startDate         DateTime
+  endDate           DateTime
   startsAt          DateTime
   endsAt            DateTime
   customer          Customer          @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  payrollCalendar   PayrollCalendar?  @relation(fields: [payrollCalendarId], references: [id], onDelete: SetNull)
   payrollExportBatches PayrollExportBatch[]
   tipTransactions   TipTransaction[]
   allocationResults AllocationResult[]
+  poolHoursEntries  PoolHoursEntry[]
+  poolDistributionRuns PoolDistributionRun[]
+  poolDistributionAllocations PoolDistributionAllocation[]
+  tipOutPostings    TipOutPosting[]
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
 
   @@unique([customerId, startsAt, endsAt])
+  @@unique([customerId, year, periodNumber])
   @@index([customerId, startsAt])
   @@index([customerId, endsAt])
+  @@index([customerId, startDate])
+  @@index([customerId, endDate])
+  @@index([payrollCalendarId, startDate])
   @@index([externalSystemProvider, externalSystemRef])
+}
+
+model PoolHoursEntry {
+  id              String               @id @default(cuid())
+  customerId      String
+  venueId         String
+  poolId          String
+  payrollPeriodId String
+  employeeId      String
+  hoursWorked     Decimal              @db.Decimal(8, 4)
+  source          PoolHoursEntrySource @default(MANUAL)
+  status          PoolHoursEntryStatus @default(DRAFT)
+  createdBy       String?
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+  customer        Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue           Venue                @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  pool            Pool                 @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  payrollPeriod   PayrollPeriod        @relation(fields: [payrollPeriodId], references: [id], onDelete: Cascade)
+  employee        StaffMember          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([poolId, payrollPeriodId, employeeId])
+  @@index([customerId, payrollPeriodId])
+  @@index([venueId, poolId, payrollPeriodId])
+  @@index([employeeId, payrollPeriodId])
+  @@index([poolId, status])
+}
+
+model PoolDistributionRun {
+  id                 String                    @id @default(cuid())
+  customerId         String
+  venueId            String
+  poolId             String
+  payrollPeriodId    String
+  poolTotal          Decimal                   @db.Decimal(10, 2)
+  totalHours         Decimal                   @db.Decimal(10, 4)
+  perHourRate        Decimal                   @db.Decimal(12, 8)
+  roundingAdjustment Decimal                   @db.Decimal(10, 2) @default(0)
+  status             PoolDistributionRunStatus @default(DRAFT)
+  createdBy          String?
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  customer           Customer                  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue              Venue                     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  pool               Pool                      @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  payrollPeriod      PayrollPeriod             @relation(fields: [payrollPeriodId], references: [id], onDelete: Cascade)
+  allocations        PoolDistributionAllocation[]
+
+  @@unique([poolId, payrollPeriodId])
+  @@index([customerId, payrollPeriodId, status])
+  @@index([venueId, poolId, status])
+  @@index([payrollPeriodId, status])
+}
+
+model PoolDistributionAllocation {
+  id                String               @id @default(cuid())
+  customerId        String
+  venueId           String
+  poolId            String
+  payrollPeriodId   String
+  runId             String
+  employeeId        String
+  hoursWorked       Decimal              @db.Decimal(8, 4)
+  allocationAmount  Decimal              @db.Decimal(10, 2)
+  hoursSource       PoolHoursEntrySource @default(MANUAL)
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+  customer          Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue             Venue                @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  pool              Pool                 @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  payrollPeriod     PayrollPeriod        @relation(fields: [payrollPeriodId], references: [id], onDelete: Cascade)
+  run               PoolDistributionRun  @relation(fields: [runId], references: [id], onDelete: Cascade)
+  employee          StaffMember          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, employeeId])
+  @@index([customerId, payrollPeriodId])
+  @@index([venueId, poolId, payrollPeriodId])
+  @@index([employeeId, payrollPeriodId])
 }
 
 model ImportedHoursWorked {
@@ -665,6 +903,7 @@ model ImportedServiceCharge {
   venueId             String
   departmentId        String?
   serviceAreaId       String?
+  staffMemberId       String?
   integrationProvider IntegrationProvider
   externalRecordRef   String
   sourceSystemName    String?
@@ -673,6 +912,7 @@ model ImportedServiceCharge {
   serviceChargeAmount Decimal               @db.Decimal(10, 2)
   cardTipAmount       Decimal?              @db.Decimal(10, 2)
   grossSalesAmount    Decimal?              @db.Decimal(10, 2)
+  discountsAmount     Decimal?              @db.Decimal(10, 2)
   currency            String                @default("GBP")
   rawPayload          Json?
   importedAt          DateTime              @default(now())
@@ -680,6 +920,8 @@ model ImportedServiceCharge {
   venue               Venue                 @relation(fields: [venueId], references: [id], onDelete: Cascade)
   department          Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   serviceArea         ServiceArea?          @relation(fields: [serviceAreaId], references: [id], onDelete: SetNull)
+  staffMember         StaffMember?          @relation(fields: [staffMemberId], references: [id], onDelete: SetNull)
+  tipOutPostings      TipOutPosting[]
   createdAt           DateTime              @default(now())
   updatedAt           DateTime              @updatedAt
 
@@ -688,6 +930,7 @@ model ImportedServiceCharge {
   @@index([venueId, businessDate])
   @@index([departmentId, businessDate])
   @@index([serviceAreaId, businessDate])
+  @@index([staffMemberId, businessDate])
   @@index([status, importedAt])
 }
 
@@ -740,6 +983,76 @@ model PayrollExportLine {
   @@index([externalEmployeeRef])
 }
 
+model TipOutRule {
+    id                       String      @id @default(cuid())
+    customerId               String
+    scope                    TipOutRuleScope @default(VENUE)
+    venueId                  String?
+    departmentId             String?
+    targetPoolId             String
+    name                     String
+    description              String?
+    rateDecimal              Decimal     @db.Decimal(8, 6)
+  capAtAvailableTipBalance Boolean     @default(true)
+  isActive                 Boolean     @default(true)
+    effectiveFrom            DateTime?
+    effectiveTo              DateTime?
+    customer                 Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+    venue                    Venue?      @relation(fields: [venueId], references: [id], onDelete: Cascade)
+    department               Department? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+    targetPool               Pool        @relation(fields: [targetPoolId], references: [id], onDelete: Restrict)
+    tipOutPostings           TipOutPosting[]
+    createdAt                DateTime    @default(now())
+    updatedAt                DateTime    @updatedAt
+  
+    @@index([customerId, isActive])
+    @@index([scope, customerId, isActive])
+    @@index([venueId, isActive])
+    @@index([departmentId, isActive])
+    @@index([targetPoolId, isActive])
+    @@index([venueId, departmentId, isActive])
+  }
+
+model TipOutPosting {
+  id                        String                @id @default(cuid())
+  customerId                String
+  venueId                   String
+  departmentId              String?
+  payrollPeriodId           String?
+  tipOutRuleId              String
+  targetPoolId              String
+  staffMemberId             String
+  importedServiceChargeId   String?
+  businessDate              DateTime
+  totalSalesAmount          Decimal               @db.Decimal(10, 2)
+  discountsAmount           Decimal               @db.Decimal(10, 2)
+  netSalesAmount            Decimal               @db.Decimal(10, 2)
+  availableTipBalanceAmount Decimal               @db.Decimal(10, 2)
+  tipOutRateDecimal         Decimal               @db.Decimal(8, 6)
+  requestedTipOutAmount     Decimal               @db.Decimal(10, 2)
+  tipOutAmount              Decimal               @db.Decimal(10, 2)
+  remainingTipBalanceAmount Decimal               @db.Decimal(10, 2)
+  wasCapped                 Boolean               @default(false)
+  customer                  Customer              @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  venue                     Venue                 @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  department                Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  payrollPeriod             PayrollPeriod?        @relation(fields: [payrollPeriodId], references: [id], onDelete: SetNull)
+  tipOutRule                TipOutRule            @relation(fields: [tipOutRuleId], references: [id], onDelete: Cascade)
+  targetPool                Pool                  @relation(fields: [targetPoolId], references: [id], onDelete: Restrict)
+  staffMember               StaffMember           @relation(fields: [staffMemberId], references: [id], onDelete: Restrict)
+  importedServiceCharge     ImportedServiceCharge? @relation(fields: [importedServiceChargeId], references: [id], onDelete: SetNull)
+  createdAt                 DateTime              @default(now())
+  updatedAt                 DateTime              @updatedAt
+
+  @@index([customerId, businessDate])
+  @@index([venueId, businessDate])
+  @@index([departmentId, businessDate])
+  @@index([payrollPeriodId, targetPoolId])
+  @@index([staffMemberId, businessDate])
+  @@index([targetPoolId, businessDate])
+  @@index([tipOutRuleId, businessDate])
+}
+
 model TipTransaction {
   id                    String               @id @default(cuid())
   customerId            String
@@ -758,7 +1071,9 @@ model TipTransaction {
   netAmount             Decimal              @db.Decimal(10, 2)
   status                TipTransactionStatus @default(PENDING)
   rating                Int?
+  comment               String?
   ratedAt               DateTime?
+  reviewIntegrationStatus ReviewIntegrationStatus @default(NOT_REQUESTED)
   occurredAt            DateTime
   stripeCheckoutId      String?
   customer              Customer             @relation(fields: [customerId], references: [id], onDelete: Cascade)
@@ -780,6 +1095,7 @@ model TipTransaction {
   @@index([destinationPoolId])
   @@index([destinationServiceAreaId])
   @@index([guestSelectionType, occurredAt])
+  @@index([reviewIntegrationStatus, occurredAt])
 }
 
 model AllocationResult {

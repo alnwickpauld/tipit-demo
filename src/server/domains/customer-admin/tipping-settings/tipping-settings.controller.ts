@@ -20,13 +20,12 @@ export const updateDepartmentTippingSettingController: ApiHandler = async (conte
   return ok(
     await service.updateDepartmentSetting(
       requireCustomerScope(context.user),
-      context.params.departmentType as
-        | "MEETING_EVENTS"
-        | "BREAKFAST"
-        | "ROOM_SERVICE"
-        | "BAR"
+      context.params.revenueCentreType as
         | "RESTAURANT"
-        | "OTHER",
+        | "BAR"
+        | "MEETINGS_EVENTS"
+        | "BREAKFAST"
+        | "ROOM_SERVICE",
       payload,
     ),
   );

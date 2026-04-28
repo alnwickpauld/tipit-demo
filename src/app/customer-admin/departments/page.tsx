@@ -15,7 +15,7 @@ export default async function CustomerDepartmentsPage() {
         venueId: true,
         name: true,
         slug: true,
-        type: true,
+        revenueCentreType: true,
         description: true,
         isActive: true,
         venue: {
@@ -40,11 +40,14 @@ export default async function CustomerDepartmentsPage() {
       },
     }),
   ]);
+  const defaultVenueId =
+    venues.find((venue) => venue.name === "Sandman Signature Newcastle")?.id ?? venues[0]?.id ?? "";
 
   return (
     <CustomerDepartmentsManager
       departments={departments}
       venues={venues}
+      defaultSelectedVenueId={defaultVenueId}
       canManage={user.role === "CUSTOMER_ADMIN" || user.role === "CUSTOMER_MANAGER"}
     />
   );

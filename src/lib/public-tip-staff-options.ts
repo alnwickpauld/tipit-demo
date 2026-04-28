@@ -28,6 +28,11 @@ export async function getPublicTipStaffSelectionBySlug(
   }
 
   const journey = destination.serviceAreaJourney;
+  const individualSelectionEnabled =
+    journey !== null &&
+    (journey.tippingMode === "INDIVIDUAL_ONLY" ||
+      journey.tippingMode === "TEAM_OR_INDIVIDUAL" ||
+      journey.tippingMode === "SHIFT_SELECTOR");
 
   return {
     slug: destination.slug,
@@ -36,13 +41,9 @@ export async function getPublicTipStaffSelectionBySlug(
     tippingMode: journey?.tippingMode ?? null,
     selectionUi: journey?.selectionUi ?? null,
     teamOptionEnabled: journey?.showTeamOption ?? false,
-    individualSelectionEnabled:
-      journey !== null &&
-      (journey.tippingMode === "INDIVIDUAL_ONLY" ||
-        journey.tippingMode === "TEAM_OR_INDIVIDUAL" ||
-        journey.tippingMode === "SHIFT_SELECTOR"),
+    individualSelectionEnabled,
     individualTippingUnavailable: journey?.individualTippingUnavailable ?? false,
     individualTippingMessage: journey?.individualTippingMessage ?? null,
-    items: journey?.activeShiftStaff ?? [],
+    items: individualSelectionEnabled ? journey?.activeShiftStaff ?? [] : [],
   };
 }

@@ -1,12 +1,15 @@
 import { authRoutes } from "./domains/auth/auth.routes";
 import { allocationRulesRoutes } from "./domains/customer-admin/allocation-rules/allocation-rules.routes";
 import { departmentsRoutes } from "./domains/customer-admin/departments/departments.routes";
+import { outletBrandsRoutes } from "./domains/customer-admin/outlet-brands/outlet-brands.routes";
 import { payrollSettingsRoutes } from "./domains/customer-admin/payroll-settings/payroll-settings.routes";
+import { poolDistributionsRoutes } from "./domains/customer-admin/pool-distributions/pool-distributions.routes";
 import { poolsRoutes } from "./domains/customer-admin/pools/pools.routes";
 import { qrAssetsRoutes } from "./domains/customer-admin/qr-assets/qr-assets.routes";
 import { serviceAreasRoutes } from "./domains/customer-admin/service-areas/service-areas.routes";
 import { shiftsRoutes } from "./domains/customer-admin/shifts/shifts.routes";
 import { staffRoutes } from "./domains/customer-admin/staff/staff.routes";
+import { tipOutRulesRoutes } from "./domains/customer-admin/tip-out-rules/tip-out-rules.routes";
 import { tippingSettingsRoutes } from "./domains/customer-admin/tipping-settings/tipping-settings.routes";
 import { venuesRoutes } from "./domains/customer-admin/venues/venues.routes";
 import { customerStatusRoutes } from "./domains/tipit-admin/customer-status/customer-status.routes";
@@ -22,12 +25,15 @@ export const backendRoutes: RouteDefinition[] = [
   ...feeSettingsRoutes,
   ...customerStatusRoutes,
   ...venuesRoutes,
+  ...outletBrandsRoutes,
   ...departmentsRoutes,
   ...qrAssetsRoutes,
   ...serviceAreasRoutes,
   ...shiftsRoutes,
   ...staffRoutes,
+  ...tipOutRulesRoutes,
   ...tippingSettingsRoutes,
+  ...poolDistributionsRoutes,
   ...poolsRoutes,
   ...allocationRulesRoutes,
   ...payrollSettingsRoutes,

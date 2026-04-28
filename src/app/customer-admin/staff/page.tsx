@@ -30,14 +30,14 @@ export default async function CustomerStaffPage() {
         where: { isActive: true },
         orderBy: [{ isPrimary: "desc" }, { department: { name: "asc" } }],
         select: {
-          department: {
-            select: {
-              id: true,
-              venueId: true,
-              name: true,
-              type: true,
+            department: {
+              select: {
+                id: true,
+                venueId: true,
+                name: true,
+                revenueCentreType: true,
+              },
             },
-          },
         },
       },
     },
@@ -57,9 +57,11 @@ export default async function CustomerStaffPage() {
       id: true,
       venueId: true,
       name: true,
-      type: true,
+      revenueCentreType: true,
     },
   });
+  const defaultVenueId =
+    venues.find((venue) => venue.name === "Sandman Signature Newcastle")?.id ?? venues[0]?.id ?? "";
   const staffWithUrls = staffMembers.map((staffMember) => ({
     ...staffMember,
     departmentIds: staffMember.departmentAssignments.map((assignment) => assignment.department.id),
@@ -72,6 +74,7 @@ export default async function CustomerStaffPage() {
       staffMembers={staffWithUrls}
       venues={venues}
       departments={departments}
+      defaultSelectedVenueId={defaultVenueId}
       canManage={user.role === "CUSTOMER_ADMIN" || user.role === "CUSTOMER_MANAGER"}
     />
   );

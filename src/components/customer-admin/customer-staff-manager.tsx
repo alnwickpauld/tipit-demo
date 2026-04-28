@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import type { RevenueCentreType } from "../../lib/revenue-centres";
 
 type VenueOption = {
   id: string;
@@ -12,7 +13,7 @@ type DepartmentOption = {
   id: string;
   venueId: string;
   name: string;
-  type: "MEETING_EVENTS" | "BREAKFAST" | "ROOM_SERVICE" | "BAR" | "RESTAURANT" | "OTHER";
+  revenueCentreType: RevenueCentreType;
 };
 
 type StaffSummary = {
@@ -88,19 +89,26 @@ export function CustomerStaffManager({
   staffMembers,
   venues,
   departments,
+  defaultSelectedVenueId,
   canManage,
 }: {
   staffMembers: StaffSummary[];
   venues: VenueOption[];
   departments: DepartmentOption[];
+  defaultSelectedVenueId?: string;
   canManage: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
-  const [selectedVenueId, setSelectedVenueId] = useState("");
+  const [selectedVenueId, setSelectedVenueId] = useState(defaultSelectedVenueId ?? "");
+  const initialVenueId = defaultSelectedVenueId ?? venues[0]?.id ?? "";
+  const initialDepartmentIds = departments
+    .filter((department) => department.venueId === initialVenueId)
+    .slice(0, 1)
+    .map((department) => department.id);
   const [createForm, setCreateForm] = useState<StaffFormState>(
-    emptyStaffForm(venues[0]?.id ?? "", departments[0] ? [departments[0].id] : []),
+    emptyStaffForm(initialVenueId, initialDepartmentIds),
   );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForms, setEditForms] = useState<Record<string, StaffFormState>>(

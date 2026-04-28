@@ -19,7 +19,7 @@ export const tippingSettingsRoutes: RouteDefinition[] = [
   },
   {
     method: "PATCH",
-    path: "/customer-admin/tipping-settings/departments/:departmentType",
+    path: "/customer-admin/tipping-settings/revenue-centres/:revenueCentreType",
     middlewares: customerManage,
     handler: updateDepartmentTippingSettingController,
   },

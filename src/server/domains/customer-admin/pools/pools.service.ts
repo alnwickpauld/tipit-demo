@@ -1,6 +1,8 @@
 import type { PrismaClient } from "@prisma/client";
+import type { PoolType } from "../../../../lib/pool-types";
 
 import { prisma } from "../../../../lib/prisma";
+import { PoolDistributionService } from "../../../../services/pool-distribution-service";
 import { NotFoundError, ValidationAppError } from "../../../shared/errors/app-error";
 
 type CreatePoolInput = {
@@ -8,17 +10,23 @@ type CreatePoolInput = {
   name: string;
   slug: string;
   description?: string;
+  poolType: PoolType;
   memberStaffIds: string[];
 };
 
 export class PoolsService {
+  private readonly distributionService = new PoolDistributionService();
+
   constructor(
     private readonly db: Pick<PrismaClient, "pool" | "poolMember" | "staffMember" | "venue"> = prisma,
   ) {}
 
-  async list(customerId: string) {
+  async list(customerId: string, filters?: { poolType?: PoolType }) {
     return this.db.pool.findMany({
-      where: { customerId },
+      where: {
+        customerId,
+        ...(filters?.poolType ? { poolType: filters.poolType } : {}),
+      },
       orderBy: [{ venue: { name: "asc" } }, { name: "asc" }],
       include: {
         venue: { select: { id: true, name: true } },
@@ -50,6 +58,7 @@ export class PoolsService {
         name: input.name,
         slug: input.slug,
         description: input.description,
+        poolType: input.poolType,
         members: {
           create: input.memberStaffIds.map((staffMemberId) => ({
             staffMemberId,
@@ -154,6 +163,90 @@ export class PoolsService {
     });
 
     return { id: poolId, deleted: true as const };
+  }
+
+  async previewDistribution(
+    customerId: string,
+    poolId: string,
+    input: {
+      poolTotal: number;
+      staffHours: Array<{ staffMemberId: string; hoursWorked: number }>;
+    },
+  ) {
+    const pool = await this.db.pool.findFirst({
+      where: { id: poolId, customerId },
+      include: {
+        members: {
+          where: { isActive: true },
+          include: {
+            staffMember: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                displayName: true,
+                status: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!pool) {
+      throw new NotFoundError("Pool not found");
+    }
+
+    const duplicateIds = new Set<string>();
+    for (const entry of input.staffHours) {
+      if (duplicateIds.has(entry.staffMemberId)) {
+        throw new ValidationAppError("Staff members can only be submitted once in a distribution preview");
+      }
+
+      duplicateIds.add(entry.staffMemberId);
+    }
+
+    const activeMembers = pool.members
+      .filter((member) => member.staffMember.status === "ACTIVE")
+      .map((member) => ({
+        id: member.staffMember.id,
+        employeeName:
+          member.staffMember.displayName ??
+          `${member.staffMember.firstName} ${member.staffMember.lastName}`.trim(),
+      }));
+
+    const activeMemberIds = new Set(activeMembers.map((member) => member.id));
+    const invalidStaffIds = input.staffHours
+      .filter((entry) => !activeMemberIds.has(entry.staffMemberId))
+      .map((entry) => entry.staffMemberId);
+
+    if (invalidStaffIds.length > 0) {
+      throw new ValidationAppError(
+        "Distribution preview hours can only be supplied for active staff who are current members of this pool",
+      );
+    }
+
+    const hoursByStaffId = new Map(
+      input.staffHours.map((entry) => [entry.staffMemberId, entry.hoursWorked]),
+    );
+
+    const distribution = this.distributionService.calculateDistribution({
+      poolTotal: input.poolTotal,
+      staff: activeMembers.map((member) => ({
+        staffMemberId: member.id,
+        employeeName: member.employeeName,
+        hoursWorked: hoursByStaffId.get(member.id) ?? 0,
+      })),
+    });
+
+    return {
+      poolId: pool.id,
+      poolName: pool.name,
+      poolTotal: distribution.poolTotal,
+      totalHoursWorked: distribution.totalHoursWorked,
+      perHourRate: distribution.perHourRate,
+      allocations: distribution.allocations,
+    };
   }
 
   private async validateMembers(customerId: string, venueId: string, memberStaffIds: string[]) {

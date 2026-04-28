@@ -99,7 +99,7 @@ test("shift eligibility falls back to team mode when configured and no active sh
     serviceAreaId: "service_area_2",
     venueId: "venue_1",
     departmentId: "department_1",
-    tippingMode: "TEAM_OR_INDIVIDUAL",
+    tippingMode: "SHIFT_SELECTOR",
     noActiveShiftBehavior: "FALLBACK_TO_TEAM",
   });
 

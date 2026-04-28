@@ -57,7 +57,15 @@ export class ServiceAreasService {
             select: {
               id: true,
               name: true,
-              type: true,
+              revenueCentreType: true,
+              outletBrand: {
+                select: {
+                  id: true,
+                  name: true,
+                  displayName: true,
+                  logoUrl: true,
+                },
+              },
             },
           },
         },
@@ -96,7 +104,15 @@ export class ServiceAreasService {
           select: {
             id: true,
             name: true,
-            type: true,
+            revenueCentreType: true,
+            outletBrand: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                logoUrl: true,
+              },
+            },
           },
         },
       },
@@ -120,10 +136,38 @@ export class ServiceAreasService {
         name: input.name,
         slug: input.slug,
         description: input.description,
+        tipScreenBackgroundColor: input.tipScreenBackgroundColor,
+        tipScreenTextColor: input.tipScreenTextColor,
+        tipScreenButtonColor: input.tipScreenButtonColor,
+        tipScreenButtonTextColor: input.tipScreenButtonTextColor,
+        tipScreenLogoImageUrl: input.tipScreenLogoImageUrl || undefined,
         tippingMode: input.tippingMode,
         displayMode: input.displayMode,
         noActiveShiftBehavior: input.noActiveShiftBehavior,
         isActive: input.isActive,
+      },
+      include: {
+        venue: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        department: {
+          select: {
+            id: true,
+            name: true,
+            revenueCentreType: true,
+            outletBrand: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                logoUrl: true,
+              },
+            },
+          },
+        },
       },
     });
   }
@@ -147,6 +191,29 @@ export class ServiceAreasService {
     return this.db.serviceArea.update({
       where: { id: serviceAreaId },
       data: input,
+      include: {
+        venue: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        department: {
+          select: {
+            id: true,
+            name: true,
+            revenueCentreType: true,
+            outletBrand: {
+              select: {
+                id: true,
+                name: true,
+                displayName: true,
+                logoUrl: true,
+              },
+            },
+          },
+        },
+      },
     });
   }
 

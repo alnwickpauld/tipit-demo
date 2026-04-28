@@ -18,6 +18,11 @@ export default async function CustomerServiceAreasPage() {
         name: true,
         slug: true,
         description: true,
+        tipScreenBackgroundColor: true,
+        tipScreenTextColor: true,
+        tipScreenButtonColor: true,
+        tipScreenButtonTextColor: true,
+        tipScreenLogoImageUrl: true,
         tippingMode: true,
         displayMode: true,
         isActive: true,
@@ -50,10 +55,13 @@ export default async function CustomerServiceAreasPage() {
         id: true,
         venueId: true,
         name: true,
-        type: true,
+        revenueCentreType: true,
+        isActive: true,
       },
     }),
   ]);
+  const defaultVenueId =
+    venues.find((venue) => venue.name === "Sandman Signature Newcastle")?.id ?? venues[0]?.id ?? "";
 
   return (
     <CustomerServiceAreasManager
@@ -63,6 +71,7 @@ export default async function CustomerServiceAreasPage() {
       }))}
       venues={venues}
       departments={departments}
+      defaultSelectedVenueId={defaultVenueId}
       canManage={user.role === "CUSTOMER_ADMIN" || user.role === "CUSTOMER_MANAGER"}
     />
   );

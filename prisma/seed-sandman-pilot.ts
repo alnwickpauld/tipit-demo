@@ -1,11 +1,11 @@
 import {
   AllocationRecipientType,
   CustomerStatus,
-  DepartmentType,
   DisplayMode,
   IntegrationProvider,
   PayrollFrequency,
   PoolStatus,
+  PoolType,
   PrismaClient,
   QrDestinationType,
   StaffStatus,
@@ -17,6 +17,7 @@ import {
   VenueType,
   VenueStatus,
 } from "@prisma/client";
+import type { RevenueCentreType } from "../src/lib/revenue-centres";
 
 import { hashPassword } from "../src/server/shared/auth/password";
 
@@ -144,6 +145,8 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
   await prisma.payrollPeriod.deleteMany();
   await prisma.allocationRuleLine.deleteMany();
   await prisma.allocationRule.deleteMany();
+  await prisma.allocationRuleTemplateLine.deleteMany();
+  await prisma.allocationRuleTemplate.deleteMany();
   await prisma.shiftStaffAssignment.deleteMany();
   await prisma.shift.deleteMany();
   await prisma.poolMember.deleteMany();
@@ -153,6 +156,7 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
   await prisma.customerDepartmentTippingSetting.deleteMany();
   await prisma.departmentStaffAssignment.deleteMany();
   await prisma.department.deleteMany();
+  await prisma.outletBrand.deleteMany();
   await prisma.staffMember.deleteMany();
   await prisma.payrollConfig.deleteMany();
   await prisma.customerUser.deleteMany();
@@ -162,6 +166,98 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
   await prisma.role.deleteMany();
 
   await seedRoles(prisma);
+  await prisma.allocationRuleTemplate.createMany({
+    data: [
+      {
+        slug: "team-pool-100",
+        name: "100% team pool",
+        description: "Routes the full tip into a selected team pool.",
+        scope: "SERVICE_AREA",
+        selectionType: "TEAM",
+        priority: 200,
+        isRecommended: true,
+      },
+      {
+        slug: "individual-only",
+        name: "Individual only",
+        description: "Routes the full tip to the selected individual staff member.",
+        scope: "SERVICE_AREA",
+        selectionType: "INDIVIDUAL",
+        priority: 200,
+        isRecommended: true,
+      },
+      {
+        slug: "team-and-individual-split",
+        name: "Team + individual split",
+        description: "Splits an individual tip between the selected employee and a shared team pool.",
+        scope: "SERVICE_AREA",
+        selectionType: "INDIVIDUAL",
+        priority: 200,
+        isRecommended: true,
+      },
+      {
+        slug: "me-default-split",
+        name: "M&E default split",
+        description: "Recommended meetings and events split with a strong team weighting.",
+        scope: "DEPARTMENT",
+        selectionType: "TEAM",
+        priority: 180,
+        isRecommended: true,
+      },
+    ],
+  });
+
+  const allocationTemplates = await prisma.allocationRuleTemplate.findMany({
+    where: {
+      slug: {
+        in: ["team-pool-100", "individual-only", "team-and-individual-split", "me-default-split"],
+      },
+    },
+    select: { id: true, slug: true },
+  });
+
+  const templateIdBySlug = new Map(allocationTemplates.map((template) => [template.slug, template.id]));
+
+  await prisma.allocationRuleTemplateLine.createMany({
+    data: [
+      {
+        allocationRuleTemplateId: templateIdBySlug.get("team-pool-100")!,
+        recipientType: AllocationRecipientType.POOL,
+        percentageBps: 10_000,
+        sortOrder: 1,
+      },
+      {
+        allocationRuleTemplateId: templateIdBySlug.get("individual-only")!,
+        recipientType: AllocationRecipientType.SELECTED_STAFF,
+        percentageBps: 10_000,
+        sortOrder: 1,
+      },
+      {
+        allocationRuleTemplateId: templateIdBySlug.get("team-and-individual-split")!,
+        recipientType: AllocationRecipientType.SELECTED_STAFF,
+        percentageBps: 7000,
+        sortOrder: 1,
+      },
+      {
+        allocationRuleTemplateId: templateIdBySlug.get("team-and-individual-split")!,
+        recipientType: AllocationRecipientType.POOL,
+        percentageBps: 3000,
+        sortOrder: 2,
+      },
+      {
+        allocationRuleTemplateId: templateIdBySlug.get("me-default-split")!,
+        recipientType: AllocationRecipientType.POOL,
+        percentageBps: 8500,
+        sortOrder: 1,
+      },
+      {
+        allocationRuleTemplateId: templateIdBySlug.get("me-default-split")!,
+        recipientType: AllocationRecipientType.POOL,
+        percentageBps: 1500,
+        sortOrder: 2,
+      },
+    ],
+  });
 
   const [tipitAdminRole, customerAdminRole, customerManagerRole, customerViewerRole] =
     await Promise.all([
@@ -246,12 +342,24 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
     }),
   ]);
 
+  const payrollCalendar = await prisma.payrollCalendar.create({
+    data: {
+      customerId: sandman.id,
+      startDate: previousPeriodStart,
+      startDayOfWeek: previousPeriodStart.getUTCDay(),
+      periodsPerYear: 26,
+      periodLengthDays: 14,
+      timezone: sandman.timezone,
+    },
+  });
+
   await prisma.payrollConfig.create({
     data: {
       customerId: sandman.id,
       frequency: PayrollFrequency.FORTNIGHTLY,
       settlementFrequency: SettlementFrequency.FORTNIGHTLY,
       payPeriodAnchor: currentPeriodStart,
+      payrollCalendarId: payrollCalendar.id,
       settlementDay: 3,
       exportEmail: "payroll@sandman.example",
       notes: "Pilot rollout for Sandman Signature Newcastle and Portmarnock Resort.",
@@ -262,8 +370,13 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
     prisma.payrollPeriod.create({
       data: {
         customerId: sandman.id,
+        payrollCalendarId: payrollCalendar.id,
         frequency: PayrollFrequency.FORTNIGHTLY,
         label: "Previous Fortnight",
+        year: previousPeriodStart.getUTCFullYear(),
+        periodNumber: 1,
+        startDate: previousPeriodStart,
+        endDate: previousPeriodEnd,
         startsAt: previousPeriodStart,
         endsAt: previousPeriodEnd,
       },
@@ -271,8 +384,13 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
     prisma.payrollPeriod.create({
       data: {
         customerId: sandman.id,
+        payrollCalendarId: payrollCalendar.id,
         frequency: PayrollFrequency.FORTNIGHTLY,
         label: "Current Fortnight",
+        year: currentPeriodStart.getUTCFullYear(),
+        periodNumber: 2,
+        startDate: currentPeriodStart,
+        endDate: currentPeriodEnd,
         startsAt: currentPeriodStart,
         endsAt: currentPeriodEnd,
       },
@@ -323,6 +441,36 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
         brandButtonTextColor: "#FFFFFF",
         brandLogoImageUrl: "/sandman-signature-hotel-586x390.jpg",
       },
+      }),
+    ]);
+
+  const [newcastleSandmanBrand, newcastleSharkClubBrand, portmarnockEventsBrand] = await Promise.all([
+    prisma.outletBrand.create({
+      data: {
+        customerId: sandman.id,
+        venueId: newcastle.id,
+        name: "sandman-signature",
+        displayName: "Sandman Signature",
+        logoUrl: "/sandman-signature-hotel-586x390.jpg",
+      },
+    }),
+    prisma.outletBrand.create({
+      data: {
+        customerId: sandman.id,
+        venueId: newcastle.id,
+        name: "shark-club-newcastle",
+        displayName: "Shark Club Newcastle",
+        logoUrl: null,
+      },
+    }),
+    prisma.outletBrand.create({
+      data: {
+        customerId: sandman.id,
+        venueId: portmarnock.id,
+        name: "portmarnock-resort-events",
+        displayName: "Portmarnock Resort",
+        logoUrl: null,
+      },
     }),
   ]);
 
@@ -332,9 +480,10 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
         data: {
           customerId: sandman.id,
           venueId: newcastle.id,
+          outletBrandId: newcastleSandmanBrand.id,
           name: "Breakfast",
           slug: "breakfast",
-          type: DepartmentType.BREAKFAST,
+          revenueCentreType: "BREAKFAST" satisfies RevenueCentreType,
           description: "Breakfast restaurant and host team.",
           isActive: true,
         },
@@ -343,9 +492,10 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
         data: {
           customerId: sandman.id,
           venueId: newcastle.id,
+          outletBrandId: newcastleSandmanBrand.id,
           name: "Room Service",
           slug: "room-service",
-          type: DepartmentType.ROOM_SERVICE,
+          revenueCentreType: "ROOM_SERVICE" satisfies RevenueCentreType,
           description: "In-room dining and tray collection service.",
           isActive: true,
         },
@@ -354,9 +504,10 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
         data: {
           customerId: sandman.id,
           venueId: newcastle.id,
+          outletBrandId: newcastleSharkClubBrand.id,
           name: "Bar",
           slug: "bar",
-          type: DepartmentType.BAR,
+          revenueCentreType: "BAR" satisfies RevenueCentreType,
           description: "Disabled for pilot rollout.",
           isActive: false,
         },
@@ -365,9 +516,10 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
         data: {
           customerId: sandman.id,
           venueId: newcastle.id,
+          outletBrandId: newcastleSharkClubBrand.id,
           name: "Restaurant",
           slug: "restaurant",
-          type: DepartmentType.RESTAURANT,
+          revenueCentreType: "RESTAURANT" satisfies RevenueCentreType,
           description: "Disabled for pilot rollout.",
           isActive: false,
         },
@@ -376,9 +528,10 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
         data: {
           customerId: sandman.id,
           venueId: portmarnock.id,
+          outletBrandId: portmarnockEventsBrand.id,
           name: "Meeting & Events",
           slug: "meeting-events",
-          type: DepartmentType.MEETING_EVENTS,
+          revenueCentreType: "MEETINGS_EVENTS" satisfies RevenueCentreType,
           description: "Ballroom, conference, and private dining service team.",
           isActive: true,
         },
@@ -389,7 +542,7 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
     data: [
       {
         customerId: sandman.id,
-        departmentType: DepartmentType.BREAKFAST,
+        revenueCentreType: "BREAKFAST" satisfies RevenueCentreType,
         qrTippingEnabled: true,
         teamTippingEnabled: true,
         individualTippingEnabled: true,
@@ -397,7 +550,7 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
       },
       {
         customerId: sandman.id,
-        departmentType: DepartmentType.ROOM_SERVICE,
+        revenueCentreType: "ROOM_SERVICE" satisfies RevenueCentreType,
         qrTippingEnabled: true,
         teamTippingEnabled: true,
         individualTippingEnabled: false,
@@ -405,7 +558,7 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
       },
       {
         customerId: sandman.id,
-        departmentType: DepartmentType.MEETING_EVENTS,
+        revenueCentreType: "MEETINGS_EVENTS" satisfies RevenueCentreType,
         qrTippingEnabled: true,
         teamTippingEnabled: true,
         individualTippingEnabled: true,
@@ -413,7 +566,7 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
       },
       {
         customerId: sandman.id,
-        departmentType: DepartmentType.BAR,
+        revenueCentreType: "BAR" satisfies RevenueCentreType,
         qrTippingEnabled: false,
         teamTippingEnabled: false,
         individualTippingEnabled: false,
@@ -421,7 +574,7 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
       },
       {
         customerId: sandman.id,
-        departmentType: DepartmentType.RESTAURANT,
+        revenueCentreType: "RESTAURANT" satisfies RevenueCentreType,
         qrTippingEnabled: false,
         teamTippingEnabled: false,
         individualTippingEnabled: false,
@@ -592,6 +745,7 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
         name: "Breakfast Team Pool",
         slug: "breakfast-team-pool",
         description: "Breakfast pooled distribution for team selections.",
+        poolType: PoolType.FOH,
         status: PoolStatus.ACTIVE,
       },
     }),
@@ -602,6 +756,7 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
         name: "Room Service Team Pool",
         slug: "room-service-team-pool",
         description: "Room service pooled distribution for team selections.",
+        poolType: PoolType.FOH,
         status: PoolStatus.ACTIVE,
       },
     }),
@@ -612,6 +767,7 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
         name: "Event Team Pool",
         slug: "event-team-pool",
         description: "Core M&E event operations pool.",
+        poolType: PoolType.HYBRID,
         status: PoolStatus.ACTIVE,
       },
     }),
@@ -622,6 +778,7 @@ export async function seedSandmanPilotDemo(prisma: PrismaClient) {
         name: "Event Bar Pool",
         slug: "event-bar-pool",
         description: "Dedicated event bar support pool for future rollout use.",
+        poolType: PoolType.FOH,
         status: PoolStatus.ACTIVE,
       },
     }),

@@ -21,8 +21,18 @@ export default async function CustomerLeaderboardPage({
 }: LeaderboardPageProps) {
   const user = await requireCustomerUser();
   const { venueId, granularity, rankingMode } = await searchParams;
+  const baseReport = await getLeaderboardReport(user.customerId!, {
+    venueId: null,
+    granularity: granularity ?? "monthly",
+    rankingMode: rankingMode ?? "earnings",
+  });
+  const defaultVenueId =
+    baseReport.context.venues.find((venue) => venue.name === "Sandman Signature Newcastle")?.id ??
+    baseReport.context.venues[0]?.id ??
+    null;
+  const activeVenueId = venueId ?? defaultVenueId;
   const report = await getLeaderboardReport(user.customerId!, {
-    venueId: venueId ?? null,
+    venueId: activeVenueId,
     granularity: granularity ?? "monthly",
     rankingMode: rankingMode ?? "earnings",
   });
@@ -36,7 +46,7 @@ export default async function CustomerLeaderboardPage({
           label: venue.name,
         }))}
         granularityOptions={[
-          { value: "monthly", label: "Monthly" },
+          { value: "monthly", label: "Payroll periods" },
           { value: "quarterly", label: "Quarterly" },
           { value: "yearly", label: "Yearly" },
         ]}
@@ -99,7 +109,7 @@ export default async function CustomerLeaderboardPage({
             <div className="flex items-end justify-between gap-4">
               <div>
                 <p className="text-xs uppercase tracking-[0.22em] text-[#8c7a6c]">
-                  {report.selectedGranularity}
+                  {report.selectedGranularityLabel}
                 </p>
                 <h2 className="mt-2 text-2xl text-[#43362f]">{bucket.label}</h2>
               </div>

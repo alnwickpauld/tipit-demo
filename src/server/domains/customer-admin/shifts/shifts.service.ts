@@ -50,7 +50,7 @@ export class ShiftsService {
       select: { id: true, name: true },
     },
     department: {
-      select: { id: true, name: true, type: true },
+      select: { id: true, name: true, revenueCentreType: true },
     },
     staffAssignments: {
       include: {

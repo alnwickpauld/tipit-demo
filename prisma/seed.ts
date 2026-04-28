@@ -1,3 +1,23 @@
+import { PrismaClient } from "@prisma/client";
+
+import { seedSandmanCleanDemo } from "./seed-sandman-demo-clean";
+
+const prisma = new PrismaClient();
+
+async function main() {
+  await seedSandmanCleanDemo(prisma);
+}
+
+main()
+  .catch((error) => {
+    console.error("Failed to seed database", error);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    await prisma.$disconnect();
+  });
+
+/*
 import {
   AllocationRecipientType,
   CustomerStatus,
@@ -2005,3 +2025,4 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+*/

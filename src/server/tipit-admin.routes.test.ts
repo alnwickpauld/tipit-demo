@@ -66,7 +66,7 @@ test("tipit admin customer routes reject unauthenticated requests", async () => 
 });
 
 test("customer viewer cannot access tipit admin customer routes", async () => {
-  const token = await login("viewer@ember.example", "Password123!");
+  const token = await login("viewer@sandman.example", "Password123!");
   const response = await requestJson<{
     error: string;
   }>("GET", "/tipit-admin/customers", { token });

@@ -18,11 +18,18 @@ export default async function CustomerAdminPage({
 }: CustomerAdminPageProps) {
   const user = await requireCustomerUser();
   const { venueId } = await searchParams;
-  const data = await getDashboardOverview(user.customerId!, venueId ?? null);
+  const initialData = await getDashboardOverview(user.customerId!, null);
+  const defaultVenueId =
+    initialData.context.venues.find((venue) => venue.name === "Sandman Signature Newcastle")?.id ??
+    initialData.context.venues[0]?.id ??
+    null;
+  const activeVenueId = venueId ?? defaultVenueId;
+  const data =
+    activeVenueId === null ? initialData : await getDashboardOverview(user.customerId!, activeVenueId);
 
   const selectedVenueName =
-    venueId
-      ? data.context.venues.find((venue) => venue.id === venueId)?.name ?? data.context.customerName
+    activeVenueId
+      ? data.context.venues.find((venue) => venue.id === activeVenueId)?.name ?? data.context.customerName
       : "All venues";
   const currentTrend = data.monthlyTrend[data.monthlyTrend.length - 1] ?? null;
   const performanceSegments = data.monthlyTrend.slice(-3);
@@ -43,13 +50,13 @@ export default async function CustomerAdminPage({
           <p className="mt-6 text-6xl font-semibold leading-none text-[#9e866f] sm:text-7xl">
             {formatCurrency(currentTrend?.grossTips ?? data.totalGrossTips, data.context.currency)}
           </p>
-          <p className="mt-3 text-2xl text-[#6f5f54]">Total tips this month</p>
+          <p className="mt-3 text-2xl text-[#6f5f54]">Total tips this payroll period</p>
 
           <div className="mt-8 rounded-[1.8rem] border border-[#dfd0c1] bg-[#f8f1ea] p-5">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-lg font-medium text-[#41342d]">Monthly Performance</p>
-                <p className="mt-1 text-sm text-[#8c796b]">Latest three periods</p>
+                <p className="text-lg font-medium text-[#41342d]">Payroll Period Performance</p>
+                <p className="mt-1 text-sm text-[#8c796b]">Latest three payroll periods</p>
               </div>
               <Link
                 href="/customer-admin/reports/payroll"
@@ -117,15 +124,15 @@ export default async function CustomerAdminPage({
               <Link
                 href="/customer-admin"
                 className={`rounded-full border px-4 py-2 text-sm font-semibold no-underline transition ${
-                  !venueId
+                  !activeVenueId
                     ? "border-[#b49e89] bg-[#b49e89] text-[#fffaf4]"
-                    : "border-[#d8c7b5] bg-[rgba(255,250,244,0.82)] text-[#5b4b40] hover:border-[#b49e89]"
+                    : "border-dashed border-[#decebd] bg-[rgba(255,250,244,0.56)] text-[#8a7869] hover:border-[#c8b5a2]"
                 }`}
               >
                 All venues
               </Link>
               {data.context.venues.map((venue) => {
-                const active = venue.id === venueId;
+                const active = venue.id === activeVenueId;
 
                 return (
                   <Link
@@ -154,7 +161,7 @@ export default async function CustomerAdminPage({
                 {averageRating}
                 <span className="ml-2 text-[#b49e89]">★</span>
               </p>
-              <p className="text-2xl font-medium text-[#43362f]">Monthly tips &amp; rating</p>
+              <p className="text-2xl font-medium text-[#43362f]">Payroll period tips &amp; rating</p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-[1.4rem] border border-[#e4d7ca] bg-[#f8f1ea] p-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-[#8c7a6c]">Net distributable</p>

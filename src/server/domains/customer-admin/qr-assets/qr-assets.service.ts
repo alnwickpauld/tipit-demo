@@ -38,7 +38,7 @@ function buildWhere(input: Omit<ListQrAssetsInput, "page" | "pageSize">): Prisma
 type QrAssetRecord = Prisma.QrAssetGetPayload<{
   include: {
     venue: { select: { id: true; name: true; slug: true } };
-    department: { select: { id: true; name: true; type: true } };
+    department: { select: { id: true; name: true; revenueCentreType: true } };
     serviceArea: { select: { id: true; name: true; slug: true; tippingMode: true } };
     staffMember: { select: { id: true; firstName: true; lastName: true; displayName: true } };
   };
@@ -88,7 +88,7 @@ export class QrAssetsService {
         where,
         include: {
           venue: { select: { id: true, name: true, slug: true } },
-          department: { select: { id: true, name: true, type: true } },
+          department: { select: { id: true, name: true, revenueCentreType: true } },
           serviceArea: { select: { id: true, name: true, slug: true, tippingMode: true } },
           staffMember: { select: { id: true, firstName: true, lastName: true, displayName: true } },
         },
@@ -118,7 +118,7 @@ export class QrAssetsService {
       },
       include: {
         venue: { select: { id: true, name: true, slug: true } },
-        department: { select: { id: true, name: true, type: true } },
+        department: { select: { id: true, name: true, revenueCentreType: true } },
         serviceArea: { select: { id: true, name: true, slug: true, tippingMode: true } },
         staffMember: { select: { id: true, firstName: true, lastName: true, displayName: true } },
       },
@@ -229,7 +229,7 @@ export class QrAssetsService {
       input.departmentId
         ? this.db.department.findFirst({
             where: { id: input.departmentId, customerId },
-            select: { id: true, venueId: true, type: true, name: true },
+            select: { id: true, venueId: true, revenueCentreType: true, name: true },
           })
         : Promise.resolve(null),
       input.serviceAreaId
@@ -244,7 +244,7 @@ export class QrAssetsService {
               individualTippingEnabled: true,
               department: {
                 select: {
-                  type: true,
+                  revenueCentreType: true,
                   name: true,
                 },
               },
@@ -313,9 +313,9 @@ export class QrAssetsService {
       if (department) {
         const departmentConfig = await this.db.customerDepartmentTippingSetting.findUnique({
           where: {
-            customerId_departmentType: {
+            customerId_revenueCentreType: {
               customerId,
-              departmentType: department.type,
+              revenueCentreType: department.revenueCentreType,
             },
           },
           select: {

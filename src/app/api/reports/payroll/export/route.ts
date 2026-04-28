@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 
-import { getPayrollReport } from "../../../../../lib/dashboard-reporting";
+import { getPayrollExportRows, getPayrollReport } from "../../../../../lib/dashboard-reporting";
 import { AuthService } from "../../../../../server/domains/auth/auth.service";
 import { getSessionTokenFromRequest } from "../../../../../server/shared/auth/session";
 
@@ -24,29 +24,43 @@ export async function GET(request: NextRequest) {
   const venueId = request.nextUrl.searchParams.get("venueId");
   const payrollPeriodId = request.nextUrl.searchParams.get("payrollPeriodId");
 
-  const report = await getPayrollReport(user.customerId, {
-    venueId,
-    payrollPeriodId,
-  });
+  const [report, exportRows] = await Promise.all([
+    getPayrollReport(user.customerId, {
+      venueId,
+      payrollPeriodId,
+    }),
+    getPayrollExportRows(user.customerId, {
+      venueId,
+      payrollPeriodId,
+    }),
+  ]);
 
   const header = [
     "employeeId",
+    "payrollReference",
     "employeeName",
     "grossTips",
     "netTips",
+    "poolAllocation",
+    "totalPayrollAmount",
     "tipCount",
     "averageTip",
+    "hoursSource",
     "rank",
   ];
 
-  const rows = report.rows.map((row) =>
+  const rows = exportRows.map((row) =>
     [
       row.employeeId,
+      escapeCsv(row.payrollReference ?? ""),
       escapeCsv(row.employeeName),
       row.grossTips.toFixed(2),
       row.netTips.toFixed(2),
+      row.poolAllocation.toFixed(2),
+      row.totalPayrollAmount.toFixed(2),
       String(row.tipCount),
       row.averageTip.toFixed(2),
+      escapeCsv(row.hoursSource),
       String(row.rank),
     ].join(","),
   );

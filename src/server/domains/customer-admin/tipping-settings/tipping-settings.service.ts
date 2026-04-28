@@ -1,13 +1,13 @@
 import { prisma } from "../../../../lib/prisma";
+import type { RevenueCentreType } from "../../../../lib/revenue-centres";
 import { NotFoundError } from "../../../shared/errors/app-error";
 
-const DEPARTMENT_TYPES = [
-  "MEETING_EVENTS",
+const REVENUE_CENTRE_TYPES = [
+  "RESTAURANT",
+  "BAR",
+  "MEETINGS_EVENTS",
   "BREAKFAST",
   "ROOM_SERVICE",
-  "BAR",
-  "RESTAURANT",
-  "OTHER",
 ] as const;
 
 export class TippingSettingsService {
@@ -21,7 +21,7 @@ export class TippingSettingsService {
         updatedAt: true,
         departmentTippingSettings: {
           orderBy: {
-            departmentType: "asc",
+            revenueCentreType: "asc",
           },
         },
         serviceAreas: {
@@ -43,7 +43,15 @@ export class TippingSettingsService {
               select: {
                 id: true,
                 name: true,
-                type: true,
+                revenueCentreType: true,
+                outletBrand: {
+                  select: {
+                    id: true,
+                    name: true,
+                    displayName: true,
+                    logoUrl: true,
+                  },
+                },
               },
             },
           },
@@ -55,16 +63,16 @@ export class TippingSettingsService {
       throw new NotFoundError("Customer not found");
     }
 
-    const departmentTippingSettings = DEPARTMENT_TYPES.map((departmentType) => {
+    const departmentTippingSettings = REVENUE_CENTRE_TYPES.map((revenueCentreType) => {
       const existing = customer.departmentTippingSettings.find(
-        (setting) => setting.departmentType === departmentType,
+        (setting) => setting.revenueCentreType === revenueCentreType,
       );
 
       return (
         existing ?? {
-          id: `default-${customer.id}-${departmentType}`,
+          id: `default-${customer.id}-${revenueCentreType}`,
           customerId: customer.id,
-          departmentType,
+          revenueCentreType,
           qrTippingEnabled: false,
           teamTippingEnabled: true,
           individualTippingEnabled: false,
@@ -83,13 +91,7 @@ export class TippingSettingsService {
 
   async updateDepartmentSetting(
     customerId: string,
-    departmentType:
-      | "MEETING_EVENTS"
-      | "BREAKFAST"
-      | "ROOM_SERVICE"
-      | "BAR"
-      | "RESTAURANT"
-      | "OTHER",
+    revenueCentreType: RevenueCentreType,
     input: Partial<{
       qrTippingEnabled: boolean;
       teamTippingEnabled: boolean;
@@ -99,14 +101,14 @@ export class TippingSettingsService {
   ) {
     return prisma.customerDepartmentTippingSetting.upsert({
       where: {
-        customerId_departmentType: {
+        customerId_revenueCentreType: {
           customerId,
-          departmentType,
+          revenueCentreType,
         },
       },
       create: {
         customerId,
-        departmentType,
+        revenueCentreType,
         qrTippingEnabled: input.qrTippingEnabled ?? false,
         teamTippingEnabled: input.teamTippingEnabled ?? true,
         individualTippingEnabled: input.individualTippingEnabled ?? false,

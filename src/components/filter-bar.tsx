@@ -56,6 +56,7 @@ export function FilterBar({
             <div className="mt-2 flex flex-wrap gap-2">
               {[{ value: "", label: "All venues" }, ...venueOptions].map((option) => {
                 const isActive = (selectedVenueId ?? "") === option.value;
+                const isAllVenues = option.value === "";
                 return (
                   <Link
                     key={`venue-${option.value || "all"}`}
@@ -69,7 +70,9 @@ export function FilterBar({
                       "rounded-full px-4 py-2 text-sm transition",
                       isActive
                         ? "border border-[#b49e89] bg-[#b49e89] font-semibold text-[#fffaf4]"
-                        : "border border-[#d7c5b2] bg-[rgba(255,251,246,0.96)] text-[#5c4d42] hover:border-[#b49e89]",
+                        : isAllVenues
+                          ? "border border-dashed border-[#decebd] bg-[rgba(255,251,246,0.55)] text-[#8a7869] hover:border-[#c8b5a2]"
+                          : "border border-[#d7c5b2] bg-[rgba(255,251,246,0.96)] text-[#5c4d42] hover:border-[#b49e89]",
                     ].join(" ")}
                   >
                     {option.label}

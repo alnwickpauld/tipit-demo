@@ -5,6 +5,7 @@ import {
   createPoolController,
   deletePoolController,
   listPoolsController,
+  previewPoolDistributionController,
   updatePoolController,
 } from "./pools.controller";
 
@@ -29,6 +30,12 @@ export const poolsRoutes: RouteDefinition[] = [
     path: "/customer-admin/pools/:poolId",
     middlewares: customerOperations,
     handler: updatePoolController,
+  },
+  {
+    method: "POST",
+    path: "/customer-admin/pools/:poolId/distribution-preview",
+    middlewares: customerReadOnly,
+    handler: previewPoolDistributionController,
   },
   {
     method: "DELETE",

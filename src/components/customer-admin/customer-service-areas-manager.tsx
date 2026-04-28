@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
+import type { RevenueCentreType } from "../../lib/revenue-centres";
 
 type VenueOption = {
   id: string;
@@ -12,7 +13,8 @@ type DepartmentOption = {
   id: string;
   venueId: string;
   name: string;
-  type: "MEETING_EVENTS" | "BREAKFAST" | "ROOM_SERVICE" | "BAR" | "RESTAURANT" | "OTHER";
+  revenueCentreType: RevenueCentreType;
+  isActive: boolean;
 };
 
 type ServiceAreaSummary = {
@@ -22,6 +24,11 @@ type ServiceAreaSummary = {
   name: string;
   slug: string;
   description: string | null;
+  tipScreenBackgroundColor: string | null;
+  tipScreenTextColor: string | null;
+  tipScreenButtonColor: string | null;
+  tipScreenButtonTextColor: string | null;
+  tipScreenLogoImageUrl: string | null;
   tippingMode: "TEAM_ONLY" | "INDIVIDUAL_ONLY" | "TEAM_OR_INDIVIDUAL" | "SHIFT_SELECTOR";
   displayMode:
     | "FIXED_SIGN"
@@ -45,6 +52,11 @@ type ServiceAreaFormState = {
   name: string;
   slug: string;
   description: string;
+  tipScreenBackgroundColor: string;
+  tipScreenTextColor: string;
+  tipScreenButtonColor: string;
+  tipScreenButtonTextColor: string;
+  tipScreenLogoImageUrl: string;
   tippingMode: ServiceAreaSummary["tippingMode"];
   displayMode: ServiceAreaSummary["displayMode"];
   isActive: boolean;
@@ -86,6 +98,11 @@ function emptyServiceAreaForm(venueId = "", departmentId = ""): ServiceAreaFormS
     name: "",
     slug: "",
     description: "",
+    tipScreenBackgroundColor: "",
+    tipScreenTextColor: "",
+    tipScreenButtonColor: "",
+    tipScreenButtonTextColor: "",
+    tipScreenLogoImageUrl: "",
     tippingMode: "TEAM_ONLY",
     displayMode: "TABLE_CARD",
     isActive: true,
@@ -121,19 +138,26 @@ export function CustomerServiceAreasManager({
   serviceAreas,
   venues,
   departments,
+  defaultSelectedVenueId,
   canManage,
 }: {
   serviceAreas: ServiceAreaSummary[];
   venues: VenueOption[];
   departments: DepartmentOption[];
+  defaultSelectedVenueId?: string;
   canManage: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
-  const [selectedVenueId, setSelectedVenueId] = useState("");
+  const [selectedVenueId, setSelectedVenueId] = useState(defaultSelectedVenueId ?? "");
+  const initialVenueId = defaultSelectedVenueId ?? venues[0]?.id ?? "";
+  const initialDepartmentId =
+    departments.find((department) => department.venueId === initialVenueId && department.isActive)?.id ??
+    departments.find((department) => department.isActive)?.id ??
+    "";
   const [createForm, setCreateForm] = useState<ServiceAreaFormState>(
-    emptyServiceAreaForm(venues[0]?.id ?? "", departments[0]?.id ?? ""),
+    emptyServiceAreaForm(initialVenueId, initialDepartmentId),
   );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForms, setEditForms] = useState<Record<string, ServiceAreaFormState>>(
@@ -146,6 +170,11 @@ export function CustomerServiceAreasManager({
           name: serviceArea.name,
           slug: serviceArea.slug,
           description: serviceArea.description ?? "",
+          tipScreenBackgroundColor: serviceArea.tipScreenBackgroundColor ?? "",
+          tipScreenTextColor: serviceArea.tipScreenTextColor ?? "",
+          tipScreenButtonColor: serviceArea.tipScreenButtonColor ?? "",
+          tipScreenButtonTextColor: serviceArea.tipScreenButtonTextColor ?? "",
+          tipScreenLogoImageUrl: serviceArea.tipScreenLogoImageUrl ?? "",
           tippingMode: serviceArea.tippingMode,
           displayMode: serviceArea.displayMode,
           isActive: serviceArea.isActive,
@@ -162,13 +191,14 @@ export function CustomerServiceAreasManager({
       .toLowerCase()
       .includes(search.toLowerCase());
 
-    return matchesVenue && matchesSearch;
+    const department = departments.find((item) => item.id === serviceArea.departmentId);
+    return Boolean(department?.isActive) && matchesVenue && matchesSearch && serviceArea.isActive;
   });
 
   const departmentsByVenue = useMemo(() => {
     return venues.map((venue) => ({
       venueId: venue.id,
-      departments: departments.filter((department) => department.venueId === venue.id),
+      departments: departments.filter((department) => department.venueId === venue.id && department.isActive),
     }));
   }, [departments, venues]);
 
@@ -225,13 +255,36 @@ export function CustomerServiceAreasManager({
     });
   }
 
-  function normalizeForm(form: ServiceAreaFormState) {
+  function normalizeCreateForm(form: ServiceAreaFormState) {
     return {
       venueId: form.venueId,
       departmentId: form.departmentId,
       name: form.name.trim(),
       slug: form.slug.trim() || slugify(form.name),
       description: form.description.trim() || undefined,
+      tipScreenBackgroundColor: form.tipScreenBackgroundColor.trim() || undefined,
+      tipScreenTextColor: form.tipScreenTextColor.trim() || undefined,
+      tipScreenButtonColor: form.tipScreenButtonColor.trim() || undefined,
+      tipScreenButtonTextColor: form.tipScreenButtonTextColor.trim() || undefined,
+      tipScreenLogoImageUrl: form.tipScreenLogoImageUrl.trim() || undefined,
+      tippingMode: form.tippingMode,
+      displayMode: form.displayMode,
+      isActive: form.isActive,
+    };
+  }
+
+  function normalizeUpdateForm(form: ServiceAreaFormState) {
+    return {
+      venueId: form.venueId,
+      departmentId: form.departmentId,
+      name: form.name.trim(),
+      slug: form.slug.trim() || slugify(form.name),
+      description: form.description.trim() || undefined,
+      tipScreenBackgroundColor: form.tipScreenBackgroundColor.trim() || null,
+      tipScreenTextColor: form.tipScreenTextColor.trim() || null,
+      tipScreenButtonColor: form.tipScreenButtonColor.trim() || null,
+      tipScreenButtonTextColor: form.tipScreenButtonTextColor.trim() || null,
+      tipScreenLogoImageUrl: form.tipScreenLogoImageUrl.trim() || null,
       tippingMode: form.tippingMode,
       displayMode: form.displayMode,
       isActive: form.isActive,
@@ -243,7 +296,7 @@ export function CustomerServiceAreasManager({
       try {
         await sendJson("/api/v1/customer-admin/service-areas", {
           method: "POST",
-          body: JSON.stringify(normalizeForm(createForm)),
+          body: JSON.stringify(normalizeCreateForm(createForm)),
         });
         const nextVenueId = createForm.venueId || venues[0]?.id || "";
         setCreateForm(
@@ -263,7 +316,9 @@ export function CustomerServiceAreasManager({
       try {
         await sendJson(`/api/v1/customer-admin/service-areas/${serviceAreaId}`, {
           method: "PATCH",
-          body: JSON.stringify(normalizeForm(editForms[serviceAreaId] ?? emptyServiceAreaForm())),
+          body: JSON.stringify(
+            normalizeUpdateForm(editForms[serviceAreaId] ?? emptyServiceAreaForm()),
+          ),
         });
         setEditingId(null);
         refreshWithNotice("Service area updated.");
@@ -395,6 +450,34 @@ export function CustomerServiceAreasManager({
               <FieldLabel>Description</FieldLabel>
               <textarea rows={3} value={createForm.description} onChange={(event) => updateCreateField("description", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none" />
             </label>
+            <div className="md:col-span-2 xl:col-span-4 rounded-[1.4rem] border border-dashed border-[#d9c8b8] bg-[rgba(255,251,246,0.55)] p-4">
+              <p className="text-sm font-semibold text-[#5d4b3d]">Tip screen styling overrides</p>
+              <p className="mt-1 text-sm text-[#8b7768]">
+                Leave these blank to inherit the venue branding, including the venue logo.
+              </p>
+              <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                <label className="block">
+                  <FieldLabel>Background</FieldLabel>
+                  <input value={createForm.tipScreenBackgroundColor} onChange={(event) => updateCreateField("tipScreenBackgroundColor", event.target.value)} placeholder="#857868" className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none placeholder:text-[#9a8574]" />
+                </label>
+                <label className="block">
+                  <FieldLabel>Text</FieldLabel>
+                  <input value={createForm.tipScreenTextColor} onChange={(event) => updateCreateField("tipScreenTextColor", event.target.value)} placeholder="#fffaf4" className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none placeholder:text-[#9a8574]" />
+                </label>
+                <label className="block">
+                  <FieldLabel>Button</FieldLabel>
+                  <input value={createForm.tipScreenButtonColor} onChange={(event) => updateCreateField("tipScreenButtonColor", event.target.value)} placeholder="#c7b199" className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none placeholder:text-[#9a8574]" />
+                </label>
+                <label className="block">
+                  <FieldLabel>Button text</FieldLabel>
+                  <input value={createForm.tipScreenButtonTextColor} onChange={(event) => updateCreateField("tipScreenButtonTextColor", event.target.value)} placeholder="#43362f" className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none placeholder:text-[#9a8574]" />
+                </label>
+                <label className="block md:col-span-2 xl:col-span-1">
+                  <FieldLabel>Logo URL</FieldLabel>
+                  <input value={createForm.tipScreenLogoImageUrl} onChange={(event) => updateCreateField("tipScreenLogoImageUrl", event.target.value)} placeholder="https://..." className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none placeholder:text-[#9a8574]" />
+                </label>
+              </div>
+            </div>
           </div>
           <button type="button" onClick={handleCreate} disabled={isPending} className="mt-5 rounded-full border border-[#b49e89] bg-[#b49e89] px-6 py-3 text-sm font-semibold text-[#fffaf4] transition disabled:cursor-not-allowed disabled:opacity-60">
             Add service area
@@ -473,6 +556,34 @@ export function CustomerServiceAreasManager({
                     <FieldLabel>Description</FieldLabel>
                     <textarea rows={3} value={form.description} onChange={(event) => updateEditField(serviceArea.id, "description", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none" />
                   </label>
+                  <div className="md:col-span-2 rounded-[1.4rem] border border-dashed border-[#d9c8b8] bg-[rgba(255,251,246,0.55)] p-4">
+                    <p className="text-sm font-semibold text-[#5d4b3d]">Tip screen styling overrides</p>
+                    <p className="mt-1 text-sm text-[#8b7768]">
+                      Leave these blank to inherit the venue branding, including the venue logo.
+                    </p>
+                    <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+                      <label className="block">
+                        <FieldLabel>Background</FieldLabel>
+                        <input value={form.tipScreenBackgroundColor} onChange={(event) => updateEditField(serviceArea.id, "tipScreenBackgroundColor", event.target.value)} placeholder="#857868" className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none placeholder:text-[#9a8574]" />
+                      </label>
+                      <label className="block">
+                        <FieldLabel>Text</FieldLabel>
+                        <input value={form.tipScreenTextColor} onChange={(event) => updateEditField(serviceArea.id, "tipScreenTextColor", event.target.value)} placeholder="#fffaf4" className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none placeholder:text-[#9a8574]" />
+                      </label>
+                      <label className="block">
+                        <FieldLabel>Button</FieldLabel>
+                        <input value={form.tipScreenButtonColor} onChange={(event) => updateEditField(serviceArea.id, "tipScreenButtonColor", event.target.value)} placeholder="#c7b199" className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none placeholder:text-[#9a8574]" />
+                      </label>
+                      <label className="block">
+                        <FieldLabel>Button text</FieldLabel>
+                        <input value={form.tipScreenButtonTextColor} onChange={(event) => updateEditField(serviceArea.id, "tipScreenButtonTextColor", event.target.value)} placeholder="#43362f" className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none placeholder:text-[#9a8574]" />
+                      </label>
+                      <label className="block md:col-span-2 xl:col-span-1">
+                        <FieldLabel>Logo URL</FieldLabel>
+                        <input value={form.tipScreenLogoImageUrl} onChange={(event) => updateEditField(serviceArea.id, "tipScreenLogoImageUrl", event.target.value)} placeholder="https://..." className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none placeholder:text-[#9a8574]" />
+                      </label>
+                    </div>
+                  </div>
                   <div className="md:col-span-2">
                     <button type="button" onClick={() => handleUpdate(serviceArea.id)} disabled={isPending} className="rounded-full border border-[#b49e89] bg-[#b49e89] px-6 py-3 text-sm font-semibold text-[#fffaf4] transition disabled:cursor-not-allowed disabled:opacity-60">
                       Save changes

@@ -2,6 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
+import {
+  formatRevenueCentreType,
+  revenueCentreLabels,
+  type RevenueCentreType,
+} from "../../lib/revenue-centres";
 
 type VenueOption = {
   id: string;
@@ -13,7 +18,7 @@ type DepartmentSummary = {
   venueId: string;
   name: string;
   slug: string;
-  type: "MEETING_EVENTS" | "BREAKFAST" | "ROOM_SERVICE" | "BAR" | "RESTAURANT" | "OTHER";
+  revenueCentreType: RevenueCentreType;
   description: string | null;
   isActive: boolean;
   venue: VenueOption;
@@ -26,7 +31,7 @@ type DepartmentFormState = {
   venueId: string;
   name: string;
   slug: string;
-  type: DepartmentSummary["type"];
+  revenueCentreType: DepartmentSummary["revenueCentreType"];
   description: string;
   isActive: boolean;
 };
@@ -35,14 +40,10 @@ type ApiErrorResponse = {
   message?: string;
 };
 
-const departmentTypes: Array<{ value: DepartmentSummary["type"]; label: string }> = [
-  { value: "MEETING_EVENTS", label: "Meeting & events" },
-  { value: "BREAKFAST", label: "Breakfast" },
-  { value: "ROOM_SERVICE", label: "Room service" },
-  { value: "BAR", label: "Bar" },
-  { value: "RESTAURANT", label: "Restaurant" },
-  { value: "OTHER", label: "Other" },
-];
+const revenueCentreOptions = Object.entries(revenueCentreLabels).map(([value, label]) => ({
+  value: value as RevenueCentreType,
+  label,
+}));
 
 function slugify(value: string) {
   return value
@@ -58,7 +59,7 @@ function emptyDepartmentForm(venueId = ""): DepartmentFormState {
     venueId,
     name: "",
     slug: "",
-    type: "OTHER",
+    revenueCentreType: "RESTAURANT",
     description: "",
     isActive: true,
   };
@@ -92,19 +93,20 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 export function CustomerDepartmentsManager({
   departments,
   venues,
+  defaultSelectedVenueId,
   canManage,
 }: {
   departments: DepartmentSummary[];
   venues: VenueOption[];
+  defaultSelectedVenueId?: string;
   canManage: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
-  const [selectedVenueId, setSelectedVenueId] = useState("");
-  const [createForm, setCreateForm] = useState<DepartmentFormState>(
-    emptyDepartmentForm(venues[0]?.id ?? ""),
-  );
+  const [selectedVenueId, setSelectedVenueId] = useState(defaultSelectedVenueId ?? "");
+  const initialVenueId = defaultSelectedVenueId ?? venues[0]?.id ?? "";
+  const [createForm, setCreateForm] = useState<DepartmentFormState>(emptyDepartmentForm(initialVenueId));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForms, setEditForms] = useState<Record<string, DepartmentFormState>>(
     Object.fromEntries(
@@ -114,7 +116,7 @@ export function CustomerDepartmentsManager({
           venueId: department.venueId,
           name: department.name,
           slug: department.slug,
-          type: department.type,
+          revenueCentreType: department.revenueCentreType,
           description: department.description ?? "",
           isActive: department.isActive,
         },
@@ -126,11 +128,11 @@ export function CustomerDepartmentsManager({
 
   const visibleDepartments = departments.filter((department) => {
     const matchesVenue = !selectedVenueId || department.venueId === selectedVenueId;
-    const matchesSearch = `${department.name} ${department.type} ${department.venue.name}`
+    const matchesSearch = `${department.name} ${department.revenueCentreType} ${department.venue.name}`
       .toLowerCase()
       .includes(search.toLowerCase());
 
-    return matchesVenue && matchesSearch;
+    return department.isActive && matchesVenue && matchesSearch;
   });
 
   function refreshWithNotice(nextMessage: string) {
@@ -169,7 +171,7 @@ export function CustomerDepartmentsManager({
       venueId: form.venueId,
       name: form.name.trim(),
       slug: form.slug.trim() || slugify(form.name),
-      type: form.type,
+      revenueCentreType: form.revenueCentreType,
       description: form.description.trim() || undefined,
       isActive: form.isActive,
     };
@@ -301,9 +303,9 @@ export function CustomerDepartmentsManager({
               <input value={createForm.slug} onChange={(event) => updateCreateField("slug", event.target.value)} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none" />
             </label>
             <label className="block">
-              <FieldLabel>Type</FieldLabel>
-              <select value={createForm.type} onChange={(event) => updateCreateField("type", event.target.value as DepartmentSummary["type"])} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none">
-                {departmentTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+              <FieldLabel>Revenue centre</FieldLabel>
+              <select value={createForm.revenueCentreType} onChange={(event) => updateCreateField("revenueCentreType", event.target.value as DepartmentSummary["revenueCentreType"])} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none">
+                {revenueCentreOptions.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
               </select>
             </label>
             <label className="block md:col-span-2 xl:col-span-4">
@@ -328,7 +330,7 @@ export function CustomerDepartmentsManager({
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
                   <h3 className="text-xl font-semibold text-[#45372f]">{department.name}</h3>
-                  <p className="mt-1 text-sm text-[#7f6c5f]">{department.venue.name} / {department.type.replaceAll("_", " ")}</p>
+                  <p className="mt-1 text-sm text-[#7f6c5f]">{department.venue.name} / {formatRevenueCentreType(department.revenueCentreType)}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="rounded-full border border-[#d5c3af] bg-[rgba(255,251,246,0.96)] px-4 py-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#7e6a59]">{department._count.serviceAreas} service areas</span>
@@ -359,9 +361,9 @@ export function CustomerDepartmentsManager({
                     </select>
                   </label>
                   <label className="block">
-                    <FieldLabel>Type</FieldLabel>
-                    <select value={form.type} onChange={(event) => updateEditField(department.id, "type", event.target.value as DepartmentSummary["type"])} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none">
-                      {departmentTypes.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
+                    <FieldLabel>Revenue centre</FieldLabel>
+                    <select value={form.revenueCentreType} onChange={(event) => updateEditField(department.id, "revenueCentreType", event.target.value as DepartmentSummary["revenueCentreType"])} className="mt-2 w-full rounded-2xl border border-[#ccb8a5] bg-[rgba(255,251,246,0.96)] px-4 py-3 text-sm text-[#43362f] outline-none">
+                      {revenueCentreOptions.map((type) => <option key={type.value} value={type.value}>{type.label}</option>)}
                     </select>
                   </label>
                   <label className="block md:col-span-2">

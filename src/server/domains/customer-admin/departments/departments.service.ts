@@ -8,6 +8,7 @@ import type { CreateDepartmentInput, UpdateDepartmentInput } from "./departments
 type ListDepartmentsInput = {
   customerId?: string;
   venueId?: string;
+  revenueCentreType?: "RESTAURANT" | "BAR" | "MEETINGS_EVENTS" | "BREAKFAST" | "ROOM_SERVICE";
   search?: string;
   page: number;
   pageSize: number;
@@ -16,11 +17,13 @@ type ListDepartmentsInput = {
 function buildWhere(input: {
   customerId?: string;
   venueId?: string;
+  revenueCentreType?: "RESTAURANT" | "BAR" | "MEETINGS_EVENTS" | "BREAKFAST" | "ROOM_SERVICE";
   search?: string;
 }): Prisma.DepartmentWhereInput {
   return {
     customerId: input.customerId,
     venueId: input.venueId,
+    revenueCentreType: input.revenueCentreType,
     name: input.search
       ? {
           contains: input.search,
@@ -32,7 +35,7 @@ function buildWhere(input: {
 
 export class DepartmentsService {
   constructor(
-    private readonly db: Pick<PrismaClient, "department" | "venue"> = prisma,
+    private readonly db: Pick<PrismaClient, "department" | "venue" | "outletBrand"> = prisma,
   ) {}
 
   async list(input: ListDepartmentsInput) {
@@ -45,6 +48,14 @@ export class DepartmentsService {
             select: {
               id: true,
               name: true,
+            },
+          },
+          outletBrand: {
+            select: {
+              id: true,
+              name: true,
+              displayName: true,
+              logoUrl: true,
             },
           },
           _count: {
@@ -84,6 +95,14 @@ export class DepartmentsService {
             name: true,
           },
         },
+        outletBrand: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            logoUrl: true,
+          },
+        },
         _count: {
           select: {
             serviceAreas: true,
@@ -100,24 +119,39 @@ export class DepartmentsService {
   }
 
   async create(customerId: string, input: CreateDepartmentInput) {
-    const venue = await this.db.venue.findFirst({
-      where: { id: input.venueId, customerId },
-      select: { id: true },
-    });
-
-    if (!venue) {
-      throw new NotFoundError("Venue not found");
-    }
+    await this.validateLinks(customerId, input.venueId, input.outletBrandId);
 
     return this.db.department.create({
       data: {
         customerId,
         venueId: input.venueId,
+        outletBrandId: input.outletBrandId,
         name: input.name,
         slug: input.slug,
-        type: input.type,
+        revenueCentreType: input.revenueCentreType,
         description: input.description,
         isActive: input.isActive,
+      },
+      include: {
+        venue: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        outletBrand: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            logoUrl: true,
+          },
+        },
+        _count: {
+          select: {
+            serviceAreas: true,
+          },
+        },
       },
     });
   }
@@ -125,26 +159,52 @@ export class DepartmentsService {
   async update(customerId: string, departmentId: string, input: UpdateDepartmentInput) {
     const department = await this.db.department.findFirst({
       where: { id: departmentId, customerId },
+      select: {
+        id: true,
+        venueId: true,
+        outletBrandId: true,
+      },
     });
 
     if (!department) {
       throw new NotFoundError("Department not found");
     }
 
-    if (input.venueId) {
-      const venue = await this.db.venue.findFirst({
-        where: { id: input.venueId, customerId },
-        select: { id: true },
-      });
+    const venueId = input.venueId ?? department.venueId;
+    const outletBrandId = input.outletBrandId ?? department.outletBrandId;
 
-      if (!venue) {
-        throw new NotFoundError("Venue not found");
-      }
+    if (input.venueId || input.outletBrandId) {
+      await this.validateLinks(customerId, venueId, outletBrandId);
     }
 
     return this.db.department.update({
       where: { id: departmentId },
-      data: input,
+      data: {
+        ...input,
+        venueId,
+        outletBrandId,
+      },
+      include: {
+        venue: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        outletBrand: {
+          select: {
+            id: true,
+            name: true,
+            displayName: true,
+            logoUrl: true,
+          },
+        },
+        _count: {
+          select: {
+            serviceAreas: true,
+          },
+        },
+      },
     });
   }
 
@@ -175,5 +235,30 @@ export class DepartmentsService {
     });
 
     return { id: departmentId, deleted: true as const };
+  }
+
+  private async validateLinks(customerId: string, venueId: string, outletBrandId: string) {
+    const [venue, outletBrand] = await Promise.all([
+      this.db.venue.findFirst({
+        where: { id: venueId, customerId },
+        select: { id: true },
+      }),
+      this.db.outletBrand.findFirst({
+        where: { id: outletBrandId, customerId },
+        select: { id: true, venueId: true },
+      }),
+    ]);
+
+    if (!venue) {
+      throw new NotFoundError("Venue not found");
+    }
+
+    if (!outletBrand) {
+      throw new NotFoundError("Outlet brand not found");
+    }
+
+    if (outletBrand.venueId !== venueId) {
+      throw new ValidationAppError("Department outlet brand must belong to the selected venue.");
+    }
   }
 }

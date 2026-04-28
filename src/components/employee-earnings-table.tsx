@@ -29,6 +29,8 @@ export function EmployeeEarningsTable({
               <th className="pb-1 pr-4">Employee</th>
               <th className="pb-1 pr-4">Gross tips</th>
               <th className="pb-1 pr-4">Net tips</th>
+              <th className="pb-1 pr-4">Pool allocation</th>
+              <th className="pb-1 pr-4">Payroll total</th>
               <th className="pb-1 pr-4">Tip count</th>
               <th className="pb-1">Average tip</th>
             </tr>
@@ -40,6 +42,8 @@ export function EmployeeEarningsTable({
                 <td className="px-4 py-4 font-medium">{row.employeeName}</td>
                 <td className="px-4 py-4">{formatCurrency(row.grossTips, currency)}</td>
                 <td className="px-4 py-4">{formatCurrency(row.netTips, currency)}</td>
+                <td className="px-4 py-4">{formatCurrency(row.poolAllocation, currency)}</td>
+                <td className="px-4 py-4">{formatCurrency(row.totalPayrollAmount, currency)}</td>
                 <td className="px-4 py-4">{row.tipCount}</td>
                 <td className="rounded-r-2xl px-4 py-4">
                   {formatCurrency(row.averageTip, currency)}

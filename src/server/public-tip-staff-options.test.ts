@@ -5,15 +5,18 @@ import { GET } from "../app/api/tip/[slug]/staff-options/route";
 import { prisma } from "../lib/prisma";
 
 test("public tip staff options endpoint returns dropdown-friendly filtered shift staff", async () => {
+  const now = new Date();
+  const activeShiftStart = new Date(now.getTime() - 60 * 60 * 1000);
+  const activeShiftEnd = new Date(now.getTime() + 3 * 60 * 60 * 1000);
   const breakfastArea = await prisma.serviceArea.findFirstOrThrow({
-    where: { slug: "breakfast-table-card" },
+    where: { slug: "ssn-breakfast-table-card-a" },
     include: { department: true },
   });
   const departmentSetting = await prisma.customerDepartmentTippingSetting.findUniqueOrThrow({
     where: {
-      customerId_departmentType: {
+      customerId_revenueCentreType: {
         customerId: breakfastArea.customerId,
-        departmentType: breakfastArea.department.type,
+        revenueCentreType: breakfastArea.department.revenueCentreType,
       },
     },
   });
@@ -24,15 +27,15 @@ test("public tip staff options endpoint returns dropdown-friendly filtered shift
     where: {
       venueId: breakfastArea.venueId,
       departmentId: breakfastArea.departmentId,
-      name: "Breakfast Service",
+      name: "Breakfast Live Shift",
     },
   });
 
   await prisma.customerDepartmentTippingSetting.update({
     where: {
-      customerId_departmentType: {
+      customerId_revenueCentreType: {
         customerId: breakfastArea.customerId,
-        departmentType: breakfastArea.department.type,
+        revenueCentreType: breakfastArea.department.revenueCentreType,
       },
     },
     data: {
@@ -56,14 +59,14 @@ test("public tip staff options endpoint returns dropdown-friendly filtered shift
     where: { id: breakfastShift.id },
     data: {
       status: "ACTIVE",
-      startsAt: new Date("2026-04-02T00:00:00.000Z"),
-      endsAt: new Date("2026-04-02T23:59:59.000Z"),
+      startsAt: activeShiftStart,
+      endsAt: activeShiftEnd,
     },
   });
 
   try {
-    const response = await GET(new Request("http://localhost/api/tip/breakfast-table-card/staff-options"), {
-      params: Promise.resolve({ slug: "breakfast-table-card" }),
+    const response = await GET(new Request("http://localhost/api/tip/ssn-breakfast-table-card-a/staff-options"), {
+      params: Promise.resolve({ slug: "ssn-breakfast-table-card-a" }),
     });
 
     assert.equal(response.status, 200);
@@ -95,23 +98,33 @@ test("public tip staff options endpoint returns dropdown-friendly filtered shift
       })),
       [
         {
-          displayName: "Maya",
-          roleLabel: "Breakfast lead",
+          displayName: "Emma",
+          roleLabel: "Server",
           sortOrder: 0,
         },
         {
-          displayName: "Tom",
-          roleLabel: "Breakfast host",
+          displayName: "Josh",
+          roleLabel: "Barista",
           sortOrder: 1,
+        },
+        {
+          displayName: "Liam",
+          roleLabel: "Runner",
+          sortOrder: 2,
+        },
+        {
+          displayName: "Maria",
+          roleLabel: "Supervisor",
+          sortOrder: 3,
         },
       ],
     );
   } finally {
     await prisma.customerDepartmentTippingSetting.update({
       where: {
-        customerId_departmentType: {
+        customerId_revenueCentreType: {
           customerId: breakfastArea.customerId,
-          departmentType: breakfastArea.department.type,
+          revenueCentreType: breakfastArea.department.revenueCentreType,
         },
       },
       data: {
@@ -143,8 +156,8 @@ test("public tip staff options endpoint returns dropdown-friendly filtered shift
 });
 
 test("public tip staff options endpoint excludes team-only journeys from individual selection", async () => {
-  const response = await GET(new Request("http://localhost/api/tip/newcastle-event-space-team/staff-options"), {
-    params: Promise.resolve({ slug: "newcastle-event-space-team" }),
+  const response = await GET(new Request("http://localhost/api/tip/ssn-room-service-tray-card/staff-options"), {
+    params: Promise.resolve({ slug: "ssn-room-service-tray-card" }),
   });
 
   assert.equal(response.status, 200);
@@ -153,7 +166,11 @@ test("public tip staff options endpoint excludes team-only journeys from individ
     data: {
       tippingMode: string | null;
       individualSelectionEnabled: boolean;
-      items: Array<unknown>;
+      items: Array<{
+        displayName: string;
+        roleLabel?: string;
+        sortOrder: number;
+      }>;
     };
   };
 

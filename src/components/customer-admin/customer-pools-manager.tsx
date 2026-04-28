@@ -46,6 +46,25 @@ type PoolFormState = {
   memberStaffIds: string[];
 };
 
+type DistributionPreviewState = {
+  poolTotal: string;
+  staffHours: Record<string, string>;
+};
+
+type DistributionPreview = {
+  poolId: string;
+  poolName: string;
+  poolTotal: number;
+  totalHoursWorked: number;
+  perHourRate: number;
+  allocations: Array<{
+    staffMemberId: string;
+    employeeName: string;
+    hoursWorked: number;
+    allocationAmount: number;
+  }>;
+};
+
 type ApiErrorResponse = {
   message?: string;
 };
@@ -57,6 +76,15 @@ function emptyPoolForm(venueId = ""): PoolFormState {
     slug: "",
     description: "",
     memberStaffIds: [],
+  };
+}
+
+function emptyDistributionPreviewState(pool: PoolSummary): DistributionPreviewState {
+  return {
+    poolTotal: "",
+    staffHours: Object.fromEntries(
+      pool.members.filter((member) => member.isActive).map((member) => [member.staffMemberId, ""]),
+    ),
   };
 }
 
@@ -98,18 +126,21 @@ export function CustomerPoolsManager({
   pools,
   venues,
   staffMembers,
+  defaultSelectedVenueId,
   canManage,
 }: {
   pools: PoolSummary[];
   venues: VenueOption[];
   staffMembers: StaffOption[];
+  defaultSelectedVenueId?: string;
   canManage: boolean;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [search, setSearch] = useState("");
-  const [selectedVenueId, setSelectedVenueId] = useState("");
-  const [createForm, setCreateForm] = useState<PoolFormState>(emptyPoolForm(venues[0]?.id ?? ""));
+  const [selectedVenueId, setSelectedVenueId] = useState(defaultSelectedVenueId ?? "");
+  const initialVenueId = defaultSelectedVenueId ?? venues[0]?.id ?? "";
+  const [createForm, setCreateForm] = useState<PoolFormState>(emptyPoolForm(initialVenueId));
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForms, setEditForms] = useState<Record<string, PoolFormState>>(
     Object.fromEntries(
@@ -129,6 +160,12 @@ export function CustomerPoolsManager({
   );
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [previewForms, setPreviewForms] = useState<Record<string, DistributionPreviewState>>(
+    Object.fromEntries(pools.map((pool) => [pool.id, emptyDistributionPreviewState(pool)])),
+  );
+  const [previewResults, setPreviewResults] = useState<Record<string, DistributionPreview | null>>(
+    Object.fromEntries(pools.map((pool) => [pool.id, null])),
+  );
 
   const visiblePools = pools.filter((pool) => {
     const matchesVenue = !selectedVenueId || pool.venueId === selectedVenueId;
@@ -229,6 +266,48 @@ export function CustomerPoolsManager({
     return groupedStaff.find((group) => group.venue.id === venueId)?.staff ?? [];
   }
 
+  function activeMembersForPool(pool: PoolSummary) {
+    return pool.members.filter((member) => member.isActive);
+  }
+
+  function updatePreviewField(pool: PoolSummary, value: string) {
+    setPreviewForms((current) => {
+      const existing = current[pool.id] ?? emptyDistributionPreviewState(pool);
+      return {
+        ...current,
+        [pool.id]: {
+          ...existing,
+          poolTotal: value,
+        },
+      };
+    });
+  }
+
+  function updatePreviewHours(pool: PoolSummary, staffMemberId: string, value: string) {
+    setPreviewForms((current) => {
+      const existing = current[pool.id] ?? emptyDistributionPreviewState(pool);
+      return {
+        ...current,
+        [pool.id]: {
+          ...existing,
+          staffHours: {
+            ...existing.staffHours,
+            [staffMemberId]: value,
+          },
+        },
+      };
+    });
+  }
+
+  function formatCurrency(value: number) {
+    return new Intl.NumberFormat("en-GB", {
+      style: "currency",
+      currency: "GBP",
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  }
+
   function handleCreate() {
     startTransition(async () => {
       try {
@@ -288,6 +367,36 @@ export function CustomerPoolsManager({
         refreshWithNotice("Pool deleted.");
       } catch (deleteError) {
         setError(deleteError instanceof Error ? deleteError.message : "Unable to delete pool");
+      }
+    });
+  }
+
+  function handlePreview(pool: PoolSummary) {
+    startTransition(async () => {
+      try {
+        const previewForm = previewForms[pool.id] ?? emptyDistributionPreviewState(pool);
+        const payload = await sendJson<{ data: DistributionPreview }>(
+          `/api/v1/customer-admin/pools/${pool.id}/distribution-preview`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              poolTotal: Number(previewForm.poolTotal || 0),
+              staffHours: activeMembersForPool(pool).map((member) => ({
+                staffMemberId: member.staffMemberId,
+                hoursWorked: Number(previewForm.staffHours[member.staffMemberId] || 0),
+              })),
+            }),
+          },
+        );
+
+        setPreviewResults((current) => ({
+          ...current,
+          [pool.id]: payload.data,
+        }));
+        setMessage(`Distribution preview updated for ${pool.name}.`);
+        setError(null);
+      } catch (previewError) {
+        setError(previewError instanceof Error ? previewError.message : "Unable to preview distribution");
       }
     });
   }
@@ -414,7 +523,9 @@ export function CustomerPoolsManager({
         {visiblePools.map((pool) => {
           const isEditing = editingId === pool.id;
           const form = editForms[pool.id] ?? emptyPoolForm(pool.venueId);
-          const activeMembers = pool.members.filter((member) => member.isActive);
+          const activeMembers = activeMembersForPool(pool);
+          const previewForm = previewForms[pool.id] ?? emptyDistributionPreviewState(pool);
+          const previewResult = previewResults[pool.id];
 
           return (
             <article
@@ -423,7 +534,7 @@ export function CustomerPoolsManager({
             >
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <p className="font-semibold text-white">{pool.name}</p>
+                  <p className="font-semibold text-[#43362f]">{pool.name}</p>
                   <div className="mt-3 rounded-2xl border border-[#dcc8b2] bg-[rgba(255,251,246,0.92)] p-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8d8d8d]">
                       Public tip URL
@@ -432,7 +543,7 @@ export function CustomerPoolsManager({
                       href={pool.publicTipUrl}
                       target="_blank"
                       rel="noreferrer"
-                      className="mt-2 block break-all text-sm font-medium text-white underline decoration-[#4a4a4a] underline-offset-4"
+                      className="mt-2 block break-all text-sm font-medium text-[#43362f] underline decoration-[#b49e89] underline-offset-4"
                     >
                       {pool.publicTipUrl}
                     </a>
@@ -454,7 +565,7 @@ export function CustomerPoolsManager({
                       </a>
                     </div>
                   </div>
-                  <p className="mt-1 text-sm text-[#d0d0d0]">
+                  <p className="mt-1 text-sm text-[#7f6c5f]">
                     {pool.venue.name} / {pool.status}
                   </p>
                 </div>
@@ -499,6 +610,122 @@ export function CustomerPoolsManager({
                     {getStaffName(member.staffMember)}
                   </span>
                 ))}
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-[#dcc8b2] bg-[rgba(255,251,246,0.92)] p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8d8d8d]">
+                      Distribution preview
+                    </p>
+                    <p className="mt-1 text-sm text-[#7f6c5f]">
+                      Enter a pool total and manual hours to preview a payroll-ready split.
+                    </p>
+                  </div>
+                  <label className="block min-w-[13rem]">
+                    <FieldLabel>Pool total</FieldLabel>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={previewForm.poolTotal}
+                      onChange={(event) => updatePreviewField(pool, event.target.value)}
+                      className="mt-2 w-full rounded-2xl border border-[#d9c8b8] bg-[#fffaf4] px-4 py-3 text-sm text-[#43362f] outline-none"
+                      placeholder="0.00"
+                    />
+                  </label>
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {activeMembers.map((member) => (
+                    <label
+                      key={member.id}
+                      className="rounded-2xl border border-[#e3d6c8] bg-[#fffdf9] p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-[#43362f]">
+                            {getStaffName(member.staffMember)}
+                          </p>
+                          <p className="text-xs text-[#7f6c5f]">Active pool member</p>
+                        </div>
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.25"
+                          value={previewForm.staffHours[member.staffMemberId] ?? ""}
+                          onChange={(event) =>
+                            updatePreviewHours(pool, member.staffMemberId, event.target.value)
+                          }
+                          className="w-28 rounded-xl border border-[#d9c8b8] bg-[#fffaf4] px-3 py-2 text-right text-sm text-[#43362f] outline-none"
+                          placeholder="0"
+                        />
+                      </div>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="mt-4 flex justify-end">
+                  <button
+                    type="button"
+                    disabled={isPending}
+                    onClick={() => handlePreview(pool)}
+                    className="rounded-full border border-[#b49e89] bg-[#b49e89] px-5 py-3 text-sm font-semibold text-[#fffaf4] transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Preview split
+                  </button>
+                </div>
+
+                {previewResult ? (
+                  <div className="mt-4 rounded-2xl border border-[#e3d6c8] bg-[#fffdf9] p-4">
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8d8d8d]">
+                          Pool total
+                        </p>
+                        <p className="mt-1 text-lg font-semibold text-[#43362f]">
+                          {formatCurrency(previewResult.poolTotal)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8d8d8d]">
+                          Total hours
+                        </p>
+                        <p className="mt-1 text-lg font-semibold text-[#43362f]">
+                          {previewResult.totalHoursWorked.toFixed(2)}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[#8d8d8d]">
+                          Per-hour rate
+                        </p>
+                        <p className="mt-1 text-lg font-semibold text-[#43362f]">
+                          {formatCurrency(previewResult.perHourRate)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 overflow-hidden rounded-2xl border border-[#eadfd3]">
+                      <div className="grid grid-cols-[minmax(0,1.4fr)_110px_130px] gap-3 bg-[#f8f1e9] px-4 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-[#7f6c5f]">
+                        <span>Employee</span>
+                        <span className="text-right">Hours</span>
+                        <span className="text-right">Allocation</span>
+                      </div>
+                      {previewResult.allocations.map((allocation) => (
+                        <div
+                          key={allocation.staffMemberId}
+                          className="grid grid-cols-[minmax(0,1.4fr)_110px_130px] gap-3 border-t border-[#f0e5da] px-4 py-3 text-sm text-[#43362f]"
+                        >
+                          <span>{allocation.employeeName}</span>
+                          <span className="text-right">{allocation.hoursWorked.toFixed(2)}</span>
+                          <span className="text-right font-semibold">
+                            {formatCurrency(allocation.allocationAmount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               {isEditing ? (

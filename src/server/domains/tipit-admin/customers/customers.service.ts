@@ -1,6 +1,7 @@
 import { SettlementFrequency } from "@prisma/client";
 import type { PrismaClient } from "@prisma/client";
 
+import { upsertPayrollCalendar } from "../../../../lib/payroll-calendar";
 import { prisma } from "../../../../lib/prisma";
 import { NotFoundError } from "../../../shared/errors/app-error";
 import type {
@@ -11,6 +12,17 @@ import type {
 
 function percentToBps(percent: number) {
   return Math.round(percent * 100);
+}
+
+function inferCalendarDefaults(payrollFrequency: "WEEKLY" | "FORTNIGHTLY" | "MONTHLY") {
+  switch (payrollFrequency) {
+    case "WEEKLY":
+      return { periodsPerYear: 52, periodLengthDays: 7 };
+    case "FORTNIGHTLY":
+      return { periodsPerYear: 26, periodLengthDays: 14 };
+    case "MONTHLY":
+      return { periodsPerYear: 13, periodLengthDays: 28 };
+  }
 }
 
 function mapCustomerResponse(
@@ -27,6 +39,10 @@ function mapCustomerResponse(
     tipitFeePercent: customer.tipitFeeBps / 100,
     payrollFrequency: customer.payrollConfig?.frequency ?? null,
     payrollAnchorDate: customer.payrollConfig?.payPeriodAnchor ?? null,
+    payrollCalendarStartDate: customer.payrollCalendar?.startDate ?? null,
+    periodsPerYear: customer.payrollCalendar?.periodsPerYear ?? null,
+    periodLengthDays: customer.payrollCalendar?.periodLengthDays ?? null,
+    startDayOfWeek: customer.payrollCalendar?.startDayOfWeek ?? null,
     settlementFrequency:
       customer.payrollConfig?.settlementFrequency ?? SettlementFrequency.WEEKLY,
     currency: customer.currency,
@@ -40,7 +56,10 @@ function mapCustomerResponse(
 
 export class CustomersService {
   constructor(
-    private readonly db: Pick<PrismaClient, "customer" | "payrollConfig" | "$transaction"> = prisma,
+    private readonly db: Pick<
+      PrismaClient,
+      "customer" | "payrollConfig" | "payrollCalendar" | "$transaction"
+    > = prisma,
   ) {}
 
   async list() {
@@ -48,6 +67,7 @@ export class CustomersService {
       orderBy: { createdAt: "desc" },
       include: {
         payrollConfig: true,
+        payrollCalendar: true,
         _count: {
           select: {
             venues: true,
@@ -80,12 +100,27 @@ export class CustomersService {
         },
       });
 
+      const defaults = inferCalendarDefaults(input.payrollFrequency);
+      const calendarAnchor = input.payrollCalendarStartDate ?? input.payrollAnchorDate ?? new Date();
+      const payrollCalendar = await upsertPayrollCalendar(
+        created.id,
+        {
+          startDate: calendarAnchor,
+          startDayOfWeek: input.startDayOfWeek ?? calendarAnchor.getUTCDay(),
+          periodsPerYear: input.periodsPerYear ?? defaults.periodsPerYear,
+          periodLengthDays: input.periodLengthDays ?? defaults.periodLengthDays,
+          timezone: input.timezone,
+        },
+        tx,
+      );
+
       await tx.payrollConfig.create({
         data: {
           customerId: created.id,
           frequency: input.payrollFrequency,
-          payPeriodAnchor: input.payrollAnchorDate,
+          payPeriodAnchor: input.payrollAnchorDate ?? input.payrollCalendarStartDate,
           settlementFrequency: input.settlementFrequency,
+          payrollCalendarId: payrollCalendar.id,
         },
       });
 
@@ -96,7 +131,7 @@ export class CustomersService {
   }
 
   async update(customerId: string, input: UpdateCustomerInput) {
-    await this.loadCustomerOrThrow(customerId);
+    const existing = await this.loadCustomerOrThrow(customerId);
 
     await this.db.$transaction(async (tx) => {
       await tx.customer.update({
@@ -118,20 +153,56 @@ export class CustomersService {
       if (
         input.payrollFrequency !== undefined ||
         input.payrollAnchorDate !== undefined ||
-        input.settlementFrequency !== undefined
+        input.settlementFrequency !== undefined ||
+        input.payrollCalendarStartDate !== undefined ||
+        input.periodsPerYear !== undefined ||
+        input.periodLengthDays !== undefined ||
+        input.startDayOfWeek !== undefined ||
+        input.timezone !== undefined
       ) {
+        const defaults = inferCalendarDefaults(
+          input.payrollFrequency ?? existing.payrollConfig?.frequency ?? "FORTNIGHTLY",
+        );
+        const calendarAnchor =
+          input.payrollCalendarStartDate ??
+          input.payrollAnchorDate ??
+          existing.payrollCalendar?.startDate ??
+          existing.payrollConfig?.payPeriodAnchor ??
+          new Date();
+        const payrollCalendar = await upsertPayrollCalendar(
+          customerId,
+          {
+            startDate: calendarAnchor,
+            startDayOfWeek:
+              input.startDayOfWeek ??
+              existing.payrollCalendar?.startDayOfWeek ??
+              calendarAnchor.getUTCDay(),
+            periodsPerYear:
+              input.periodsPerYear ?? existing.payrollCalendar?.periodsPerYear ?? defaults.periodsPerYear,
+            periodLengthDays:
+              input.periodLengthDays ??
+              existing.payrollCalendar?.periodLengthDays ??
+              defaults.periodLengthDays,
+            timezone: input.timezone ?? existing.timezone,
+          },
+          tx,
+        );
+
         await tx.payrollConfig.upsert({
           where: { customerId },
           create: {
             customerId,
             frequency: input.payrollFrequency ?? "WEEKLY",
-            payPeriodAnchor: input.payrollAnchorDate,
+            payPeriodAnchor: input.payrollAnchorDate ?? input.payrollCalendarStartDate,
             settlementFrequency: input.settlementFrequency ?? SettlementFrequency.WEEKLY,
+            payrollCalendarId: payrollCalendar.id,
           },
           update: {
             frequency: input.payrollFrequency,
-            payPeriodAnchor: input.payrollAnchorDate,
+            payPeriodAnchor:
+              input.payrollAnchorDate ?? input.payrollCalendarStartDate ?? undefined,
             settlementFrequency: input.settlementFrequency,
+            payrollCalendarId: payrollCalendar.id,
           },
         });
       }
@@ -156,6 +227,7 @@ export class CustomersService {
       where: { id: customerId },
       include: {
         payrollConfig: true,
+        payrollCalendar: true,
         _count: {
           select: {
             venues: true,

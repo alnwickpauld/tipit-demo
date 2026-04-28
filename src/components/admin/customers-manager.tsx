@@ -90,7 +90,11 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 export function CustomersManager({ customers }: { customers: CustomerSummary[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [editingId, setEditingId] = useState<string | null>(customers[0]?.id ?? null);
+  const [editingId, setEditingId] = useState<string | null>(
+    customers.find((customer) => customer.name === "Sandman Hospitality Group")?.id ??
+      customers[0]?.id ??
+      null,
+  );
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [forms, setForms] = useState<Record<string, CustomerFormState>>(

@@ -66,12 +66,15 @@ export default async function CustomerPoolsPage() {
     ...pool,
     publicTipUrl: getPoolTipUrl(pool.id),
   }));
+  const defaultVenueId =
+    venues.find((venue) => venue.name === "Sandman Signature Newcastle")?.id ?? venues[0]?.id ?? "";
 
   return (
     <CustomerPoolsManager
       pools={poolsWithUrls}
       venues={venues}
       staffMembers={staffMembers}
+      defaultSelectedVenueId={defaultVenueId}
       canManage={user.role === "CUSTOMER_ADMIN" || user.role === "CUSTOMER_MANAGER"}
     />
   );

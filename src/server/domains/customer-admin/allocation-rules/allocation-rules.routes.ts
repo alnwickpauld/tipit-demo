@@ -3,7 +3,9 @@ import { requirePermission } from "../../../shared/auth/authorization";
 import type { RouteDefinition } from "../../../shared/http/types";
 import {
   createAllocationRuleController,
+  createAllocationRuleFromTemplateController,
   listAllocationRulesController,
+  listAllocationRuleTemplatesController,
   updateAllocationRuleController,
 } from "./allocation-rules.controller";
 
@@ -18,10 +20,22 @@ export const allocationRulesRoutes: RouteDefinition[] = [
     handler: listAllocationRulesController,
   },
   {
+    method: "GET",
+    path: "/customer-admin/allocation-rules/templates",
+    middlewares: customerReadOnly,
+    handler: listAllocationRuleTemplatesController,
+  },
+  {
     method: "POST",
     path: "/customer-admin/allocation-rules",
     middlewares: customerOperations,
     handler: createAllocationRuleController,
+  },
+  {
+    method: "POST",
+    path: "/customer-admin/allocation-rules/templates/apply",
+    middlewares: customerOperations,
+    handler: createAllocationRuleFromTemplateController,
   },
   {
     method: "PATCH",
