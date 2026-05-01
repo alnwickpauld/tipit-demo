@@ -86,8 +86,8 @@ export function LoginForm() {
           Sign in to manage hospitality groups, venues, staff, and payroll settings.
         </h1>
         <p className="mt-4 max-w-2xl text-base leading-7 text-[#5c667c]">
-          The backend APIs are already wired. This screen gives you a real browser entry
-          point into the seeded Tipit Admin and Customer Admin areas.
+          This screen gives you a real browser entry point into the Customer Admin area
+          for the Sandman Signature Prototype.
         </p>
 
         <form className="mt-8 grid gap-4" onSubmit={handleSubmit}>
@@ -151,7 +151,7 @@ export function LoginForm() {
         </div>
 
         <div className="mt-6 rounded-[1.5rem] border border-[#d8deea] bg-[#eef3fb] px-4 py-4 text-sm leading-6 text-[#46546a]">
-          Use the seeded Sandman customer admin account to open the
+          Use this demo admin account to open the
           customer-scoped workspace with venues, service areas, staff, pools, and payroll settings.
         </div>
       </aside>
